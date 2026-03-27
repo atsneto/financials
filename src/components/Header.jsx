@@ -1,6 +1,9 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import Logo from "./Logo";
 import { useState, useRef, useEffect } from "react";
+import iconBanknotes from "../icons/banknotes-dollar-money-currency-finance-payment-svgrepo-com.svg";
+import iconChartPie from "../icons/chart-pie-svgrepo-com.svg";
+import iconLawBuilding from "../icons/law-building-svgrepo-com.svg";
 
 
 export default function Header({ onLogout }) {
@@ -15,13 +18,13 @@ export default function Header({ onLogout }) {
       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" /></svg>
     )},
     { label: "Transações", path: "/transactions", icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+      <img src={iconBanknotes} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "Investimentos", path: "/investiments", icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+      <img src={iconChartPie} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "Open Finance", path: "/open-finance", icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21" /></svg>
+      <img src={iconLawBuilding} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
   ];
 

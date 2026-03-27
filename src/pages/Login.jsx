@@ -45,6 +45,15 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6 py-14">
+      <a
+        href="/"
+        className="absolute top-5 left-5 flex items-center gap-1.5 text-slate-500 hover:text-slate-800 text-sm transition"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Voltar
+      </a>
       <div
         className={`w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-500 ${
           mounted ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"

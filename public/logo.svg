@@ -1,0 +1,8 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+	<defs>
+		<image  width="125" height="185" id="img1" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH0AAAC5BAMAAAD31y20AAAAAXNSR0IB2cksfwAAAC1QTFRFAAAAGUrVGUrVGUrVGUrVGUrVGUrVGUrVGUrVGUrVGUrVGUrVGUrVGUrVGUrV2Im43wAAAA90Uk5TAI3/KMSyEzTnGJQeVhEwn7eixQAAAIRJREFUeJzt2KENg2AUhdE+USTBV8EKdJXuUNkwERrFBEzQBboHusFUvNSQXzShybnuE2eBG6fCRZvrHTzP8zzP8zx/AH9tsrmMpX6YU1T3B8/zPM/zPP/xU864Ffsu5/nF8zzP8zzP8zzP8/wP/DNn9Lu+XjJYi/+Dr/E8z/M8z/P/5TfEC/+JNpKxCQAAAABJRU5ErkJggg=="/>
+	</defs>
+	<style>
+	</style>
+	<use id="Camada 1" href="#img1" x="38" y="7"/>
+</svg>

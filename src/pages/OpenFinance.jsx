@@ -6,6 +6,7 @@ import {
   listConnections,
 } from "../services/pluggyService";
 import { usePluggyConnect } from "../hooks/usePluggyConnect";
+import lawBuilding from "../icons/law-building-svgrepo-com.svg";
 
 export default function OpenFinance() {
   const [connections, setConnections] = useState([]);
@@ -213,19 +214,7 @@ export default function OpenFinance() {
       {connections.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21"
-              />
-            </svg>
+            <img src={lawBuilding} alt="" className="w-8 h-8 opacity-40" />
           </div>
           <h3 className="text-base font-medium text-slate-700 mb-1">
             Nenhuma conta conectada
