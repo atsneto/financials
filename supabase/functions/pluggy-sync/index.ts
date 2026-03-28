@@ -11,6 +11,73 @@ const PLUGGY_API = "https://api.pluggy.ai";
 
 console.info("pluggy-sync function started");
 
+// ── Category mapping ───────────────────────────────────────────────────────────
+
+function mapCategory(raw: string | null | undefined): string {
+  if (!raw) return "Outros";
+  const s = raw.trim().toLowerCase();
+
+  // Keyword regex (highest priority)
+  if (/delivery|ifood|uber\s*eat|rappi|james\s*deliv|loggi/.test(s)) return "Delivery";
+  if (/mercado|supermercado|supermarket|grocery|hortifruti|atacad/.test(s)) return "Mercado";
+  if (/food|alimenta|restauran|lanchon|padaria|bakery|cafe|coffee|bar |snack|meal|lunch|dinner|breakfast/.test(s)) return "Alimentação";
+  if (/transport|uber|99|cabify|taxi|ônibus|onibus|metro|metrô|trem|combustiv|gasolina|gas station|estacion|pedagio|pedágio|parking|bus/.test(s)) return "Transporte";
+  if (/lazer|entret|cinema|netflix|spotify|disney|gaming|jogo|game|show|teatro|concert|streaming/.test(s)) return "Lazer";
+  if (/saude|saúde|health|farmácia|farmacia|pharmacy|medic|hospital|clinic|dentist|doctor/.test(s)) return "Saúde";
+  if (/educaç|educac|escola|school|universid|college|curso|course|livro|book|stationery/.test(s)) return "Educação";
+  if (/aluguel|rent|condom|iptu|água|agua|luz|energia|electric|internet|telefon|phone|moradia|housing/.test(s)) return "Moradia";
+  if (/roupa|vestuário|vestuario|cloth|fashion|shoe|sapato|calçado|calcado|moda/.test(s)) return "Vestuário";
+
+  // Exact EN dictionary
+  const enMap: Record<string, string> = {
+    "food and beverage": "Alimentação",
+    "food & beverage": "Alimentação",
+    "restaurants": "Alimentação",
+    "groceries": "Mercado",
+    "supermarkets": "Mercado",
+    "transportation": "Transporte",
+    "transport": "Transporte",
+    "travel": "Transporte",
+    "entertainment": "Lazer",
+    "leisure": "Lazer",
+    "health": "Saúde",
+    "health and beauty": "Saúde",
+    "education": "Educação",
+    "home": "Moradia",
+    "housing": "Moradia",
+    "utilities": "Moradia",
+    "clothing": "Vestuário",
+    "shopping": "Outros",
+    "services": "Outros",
+    "finance": "Outros",
+    "transfers": "Outros",
+    "other": "Outros",
+  };
+  if (enMap[s]) return enMap[s];
+
+  // Exact PT dictionary
+  const ptMap: Record<string, string> = {
+    "alimentação": "Alimentação",
+    "restaurantes": "Alimentação",
+    "delivery": "Delivery",
+    "mercado": "Mercado",
+    "supermercado": "Mercado",
+    "transporte": "Transporte",
+    "lazer": "Lazer",
+    "entretenimento": "Lazer",
+    "saúde": "Saúde",
+    "educação": "Educação",
+    "moradia": "Moradia",
+    "vestuário": "Vestuário",
+    "outros": "Outros",
+  };
+  if (ptMap[s]) return ptMap[s];
+
+  return "Outros";
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
 async function getPluggyApiKey(): Promise<string> {
   const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
   const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
@@ -32,6 +99,8 @@ function getAdminClient() {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 }
+
+// ── Main handler ───────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -62,27 +131,23 @@ Deno.serve(async (req: Request) => {
 
     // ── DELETE ──────────────────────────────────────────────
     if (action === "delete") {
-      // Remove do Pluggy
       await fetch(`${PLUGGY_API}/items/${itemId}`, {
         method: "DELETE",
         headers: pluggyHeaders,
       });
 
-      // Remove do banco
       await admin
         .from("pluggy_connections")
         .delete()
         .eq("item_id", itemId)
         .eq("user_id", user.id);
 
-      // Remove transações importadas desse item
       await admin
         .from("transactions")
         .delete()
         .eq("user_id", user.id)
         .eq("source", `pluggy:${itemId}`);
 
-      // Remove transações de cartão de crédito importadas desse item
       await admin
         .from("credit_card_transactions")
         .delete()
@@ -140,51 +205,8 @@ Deno.serve(async (req: Request) => {
       const txs = txData.results || [];
 
       if (isCreditCard) {
-        // ── Transações de Cartão de Crédito ──
-        const mapped = txs.map((tx: any) => ({
-          user_id: user.id,
-          title: tx.description || "Transação Cartão Open Finance",
-          amount: Math.abs(tx.amount),
-          category: tx.category || "Open Finance",
-          merchant: tx.merchantName || null,
-          created_at: tx.date,
-          source: `pluggy:${itemId}`,
-          external_id: tx.id,
-        }));
-
-        // Evitar duplicatas
-        const { data: existing } = await admin
-          .from("credit_card_transactions")
-          .select("external_id")
-          .eq("user_id", user.id)
-          .eq("source", `pluggy:${itemId}`);
-
-        const existingIds = new Set(
-          (existing || []).map((e: any) => e.external_id)
-        );
-        const newTxs = mapped.filter(
-          (t: any) => !existingIds.has(t.external_id)
-        );
-
-        if (newTxs.length > 0) {
-          await admin.from("credit_card_transactions").insert(newTxs);
-          totalCreditCardImported += newTxs.length;
-        }
-      } else {
-        // ── Transações Regulares (Conta Corrente/Poupança) ──
-        const mapped = txs.map((tx: any) => ({
-          user_id: user.id,
-          title: tx.description || "Transação Open Finance",
-          amount: Math.abs(tx.amount),
-          type: tx.type === "CREDIT" ? "income" : "expense",
-          category: tx.category || "Open Finance",
-          merchant: tx.merchantName || null,
-          created_at: tx.date,
-          source: `pluggy:${itemId}`,
-          external_id: tx.id,
-        }));
-
-        // Evitar duplicatas
+        // ── Cartão de Crédito ──────────────────────────────
+        // Verificar external_ids já importados para evitar duplicatas
         const { data: existing } = await admin
           .from("transactions")
           .select("external_id")
@@ -194,13 +216,58 @@ Deno.serve(async (req: Request) => {
         const existingIds = new Set(
           (existing || []).map((e: any) => e.external_id)
         );
-        const newTxs = mapped.filter(
-          (t: any) => !existingIds.has(t.external_id)
-        );
+
+        const newTxs = txs
+          .filter((tx: any) => !existingIds.has(tx.id))
+          .map((tx: any) => ({
+            user_id: user.id,
+            title: tx.description || "Compra Cartão Open Finance",
+            amount: Math.abs(tx.amount),
+            type: "expense",
+            category: mapCategory(tx.category),
+            payment_method: "credit_card",
+            merchant: tx.merchantName || null,
+            created_at: tx.date,
+            source: `pluggy:${itemId}`,
+            external_id: tx.id,
+          }));
 
         if (newTxs.length > 0) {
-          await admin.from("transactions").insert(newTxs);
-          totalImported += newTxs.length;
+          const { error: txErr } = await admin.from("transactions").insert(newTxs);
+          if (txErr) console.error("Error inserting credit card transactions:", txErr);
+          else totalCreditCardImported += newTxs.length;
+        }
+      } else {
+        // ── Conta Corrente / Poupança ──────────────────────
+        const { data: existing } = await admin
+          .from("transactions")
+          .select("external_id")
+          .eq("user_id", user.id)
+          .eq("source", `pluggy:${itemId}`);
+
+        const existingIds = new Set(
+          (existing || []).map((e: any) => e.external_id)
+        );
+
+        const newTxs = txs
+          .filter((tx: any) => !existingIds.has(tx.id))
+          .map((tx: any) => ({
+            user_id: user.id,
+            title: tx.description || "Transação Open Finance",
+            amount: Math.abs(tx.amount),
+            type: tx.type === "CREDIT" ? "income" : "expense",
+            category: mapCategory(tx.category),
+            payment_method: "debit_pix",
+            merchant: tx.merchantName || null,
+            created_at: tx.date,
+            source: `pluggy:${itemId}`,
+            external_id: tx.id,
+          }));
+
+        if (newTxs.length > 0) {
+          const { error: txErr } = await admin.from("transactions").insert(newTxs);
+          if (txErr) console.error("Error inserting transactions:", txErr);
+          else totalImported += newTxs.length;
         }
       }
     }
@@ -220,6 +287,7 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("pluggy-sync error:", message);
     return new Response(
       JSON.stringify({ error: message }),
       {

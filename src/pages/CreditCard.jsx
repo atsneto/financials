@@ -33,6 +33,10 @@ export default function CreditCard() {
   const [closingDay, setClosingDay] = useState(25);
   const [dueDay, setDueDay] = useState(5);
 
+  // múltiplos cartões
+  const [userCards, setUserCards] = useState([]);
+  const [selectedCardId, setSelectedCardId] = useState(null); // null = todos
+
   // Filtro de mês/ano para a lista de compras
   const nowDate = new Date();
   const [filterMonth, setFilterMonth] = useState(nowDate.getMonth());
@@ -58,26 +62,17 @@ export default function CreditCard() {
 
     const user = sessionData.session.user;
 
-    const { data } = await supabase
-      .from("credit_card_transactions")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: settings }, { data: cardsData }] = await Promise.all([
+      supabase.from("credit_card_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("credit_card_settings").select("closing_day, due_day").eq("user_id", user.id).maybeSingle(),
+      supabase.from("credit_cards").select("id, name, last_four, closing_day, due_day").eq("user_id", user.id).order("created_at"),
+    ]);
 
     setPurchases(data || []);
+    setUserCards(cardsData || []);
 
-    // load credit card settings (closing day + due day)
-    try {
-      const { data: settings } = await supabase
-        .from("credit_card_settings")
-        .select("closing_day, due_day")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (settings && settings.closing_day) setClosingDay(settings.closing_day);
-      if (settings && settings.due_day) setDueDay(settings.due_day);
-    } catch (err) {
-      // ignore if not exists or permissions
-    }
+    if (settings?.closing_day) setClosingDay(settings.closing_day);
+    if (settings?.due_day) setDueDay(settings.due_day);
   }
 
   // Derived stats for UI (positive = charge, negative = reimbursement/payment)
@@ -106,11 +101,17 @@ export default function CreditCard() {
   // Determine current filter period
   const today = new Date();
 
-  // transactions filtered by selected month/year (usar filterMonth/filterYear)
+  // cartão ativo (para usar closing_day/due_day do próprio cartão)
+  const activeCard = userCards.find((c) => c.id === selectedCardId) || null;
+  const effectiveClosingDay = activeCard?.closing_day ?? closingDay;
+  const effectiveDueDay = activeCard?.due_day ?? dueDay;
+
+  // transactions filtered by selected card + month/year
   const filteredPurchases = purchases.filter((p) => {
     if (!p?.created_at) return false;
+    if (selectedCardId && p.credit_card_id !== selectedCardId) return false;
     const d = new Date(p.created_at);
-    const { month: endMonth, year: endYear } = getPeriodEndForDate(d, closingDay);
+    const { month: endMonth, year: endYear } = getPeriodEndForDate(d, effectiveClosingDay);
     return endMonth === filterMonth && endYear === filterYear;
   });
 
@@ -432,15 +433,44 @@ export default function CreditCard() {
       {/* Header */}
       <div className="bg-white rounded-xl border border-slate-200 p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-semibold text-slate-800">Cartão de Crédito</h1>
             <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
               <span>Fatura: R$ {total.toFixed(2)}</span>
               <span className="text-slate-300">•</span>
-              <span>Fechamento dia {closingDay}</span>
+              <span>Fechamento dia {effectiveClosingDay}</span>
               <span className="text-slate-300">•</span>
-              <span>Vencimento dia {dueDay}</span>
+              <span>Vencimento dia {effectiveDueDay}</span>
             </div>
+
+            {/* Seletor de cartões */}
+            {userCards.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                <button
+                  onClick={() => setSelectedCardId(null)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                    selectedCardId === null
+                      ? "bg-primary-600 text-white border-primary-600"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Todos
+                </button>
+                {userCards.map((card) => (
+                  <button
+                    key={card.id}
+                    onClick={() => setSelectedCardId(card.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                      selectedCardId === card.id
+                        ? "bg-primary-600 text-white border-primary-600"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {card.name}{card.last_four ? ` •••• ${card.last_four}` : ""}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <select
@@ -540,7 +570,7 @@ export default function CreditCard() {
               <p>Média mês R$ {monthlyAverage.toFixed(2)}</p>
             </div>
             <div className="mt-3 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 text-center font-medium">
-              Fechamento {closingDay} • Vencimento {dueDay}
+              Fechamento {effectiveClosingDay} • Vencimento {effectiveDueDay}
             </div>
           </div>
 

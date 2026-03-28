@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import iconBanknotes from "../icons/banknotes-dollar-money-currency-finance-payment-svgrepo-com.svg";
 import iconChartPie from "../icons/chart-pie-svgrepo-com.svg";
 import iconLawBuilding from "../icons/law-building-svgrepo-com.svg";
+import iconWallet from "../icons/wallet-svgrepo-com.svg";
 
 
 export default function Header({ onLogout }) {
@@ -25,6 +26,14 @@ export default function Header({ onLogout }) {
     )},
     { label: "Open Finance", path: "/open-finance", icon: (
       <img src={iconLawBuilding} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+    )},
+    { label: "Metas", path: "/goals", icon: (
+      <img src={iconWallet} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+    )},
+    { label: "James", path: "/james", icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+      </svg>
     )},
   ];
 

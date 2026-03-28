@@ -1,552 +1,797 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
-import { useNavigate } from "react-router-dom";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
+import iconWallet    from "../icons/wallet-svgrepo-com.svg";
+import iconChart     from "../icons/chart-pie-svgrepo-com.svg";
+import iconBanknotes from "../icons/banknotes-dollar-money-currency-finance-payment-svgrepo-com.svg";
+import iconCard      from "../icons/card-credit-money-currency-finance-payment-2-svgrepo-com.svg";
+import iconBag       from "../icons/bag-dollar-money-currency-finance-payment-svgrepo-com.svg";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const GOAL_TYPES = [
+  { id: "save",    label: "Economizar dinheiro",  example: "Ex: juntar R$ 5.000",              icon: iconWallet,    color: "bg-blue-100",    iconColor: "text-blue-600"   },
+  { id: "reduce",  label: "Reduzir gastos",        example: "Ex: gastar menos com delivery",    icon: iconBanknotes, color: "bg-amber-100",   iconColor: "text-amber-600"  },
+  { id: "control", label: "Controlar categoria",   example: "Ex: limite mensal em alimentação", icon: iconChart,     color: "bg-violet-100",  iconColor: "text-violet-600" },
+  { id: "debt",    label: "Quitar dívidas",         example: "Ex: pagar cartão de crédito",      icon: iconCard,      color: "bg-red-100",     iconColor: "text-red-600"    },
+];
+
+const PAYMENT_METHODS = [
+  { value: "",             label: "Todos os meios"    },
+  { value: "credit_card",  label: "Cartão de crédito" },
+  { value: "debit_pix",    label: "Débito / Pix"      },
+  { value: "meal_voucher", label: "Vale alimentação"   },
+];
+
+const CATEGORIES = [
+  "Alimentação", "Transporte", "Lazer", "Saúde", "Educação",
+  "Moradia", "Vestuário", "Delivery", "Mercado", "Outros",
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getDateRange(period, startDate, endDate) {
+  const now = new Date();
+  if (period === "monthly") {
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10),
+      end:   new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10),
+    };
+  }
+  if (period === "weekly") {
+    const day  = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const mon  = new Date(now.getFullYear(), now.getMonth(), diff);
+    return {
+      start: mon.toISOString().slice(0, 10),
+      end:   new Date(mon.getTime() + 6 * 86400000).toISOString().slice(0, 10),
+    };
+  }
+  return { start: startDate, end: endDate };
+}
+
+function calcProgress(goal, transactions) {
+  const { start, end } = getDateRange(goal.period, goal.start_date, goal.end_date);
+  const filtered = transactions.filter((tx) => {
+    const d = (tx.created_at || "").slice(0, 10);
+    if (d < start || d > end) return false;
+    if (goal.payment_method && tx.payment_method !== goal.payment_method) return false;
+    if (goal.category && tx.category?.toLowerCase() !== goal.category?.toLowerCase()) return false;
+    return true;
+  });
+  if (goal.type === "save") {
+    const income   = filtered.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+    const expenses = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+    // Also add manual current_amount contributions
+    return Math.max(0, income - expenses) + Number(goal.current_amount || 0);
+  }
+  return filtered.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+}
+
+function fmtCurrency(v) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+}
+
+function fmtDate(d) {
+  if (!d) return "";
+  return new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr + "T00:00:00") - new Date();
+  return Math.ceil(diff / 86400000);
+}
+
+function endOfMonth() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+}
+
+function endOfWeek() {
+  const now  = new Date();
+  const day  = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const mon  = new Date(now.getFullYear(), now.getMonth(), diff);
+  return new Date(mon.getTime() + 6 * 86400000).toISOString().slice(0, 10);
+}
+
+// ─── GoalTypeIcon ─────────────────────────────────────────────────────────────
+
+function GoalTypeIcon({ icon, className = "w-5 h-5", dark = false }) {
+  return (
+    <img
+      src={icon}
+      alt=""
+      className={className}
+      style={{ filter: dark ? "brightness(0) saturate(100%)" : "brightness(0) invert(1)" }}
+    />
+  );
+}
+
+// ─── DepositModal ─────────────────────────────────────────────────────────────
+
+function DepositModal({ goal, onClose, onSaved }) {
+  const [amount, setAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState("");
+
+  async function handleDeposit() {
+    const val = parseFloat(amount);
+    if (!val || val <= 0) return setError("Informe um valor válido");
+    setSaving(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setSaving(false); return; }
+
+    const newAmount = Number(goal.current_amount || 0) + val;
+    const { error: err } = await supabase
+      .from("goals")
+      .update({ current_amount: newAmount })
+      .eq("id", goal.id)
+      .eq("user_id", session.user.id);
+
+    setSaving(false);
+    if (err) return setError("Erro ao registrar. Tente novamente.");
+    onSaved();
+    onClose();
+  }
+
+  const gt         = GOAL_TYPES.find((t) => t.id === goal.type);
+  const remaining  = Math.max(0, Number(goal.target_amount) - Number(goal.current_amount || 0));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-xl w-full max-w-sm shadow-lg border border-slate-200 mx-4">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            {gt && (
+              <span className={`w-8 h-8 rounded-lg ${gt.color} flex items-center justify-center`}>
+                <GoalTypeIcon icon={gt.icon} className="w-4 h-4" dark />
+              </span>
+            )}
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">Adicionar aporte</h2>
+              <p className="text-xs text-slate-400 truncate max-w-[180px]">{goal.title}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition p-1">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          {remaining > 0 && (
+            <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2.5">
+              <span>Faltam para a meta</span>
+              <span className="font-semibold text-slate-700">{fmtCurrency(remaining)}</span>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Valor do aporte (R$)</label>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="0,00"
+              value={amount}
+              onChange={(e) => { setAmount(e.target.value); setError(""); }}
+              autoFocus
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleDeposit} disabled={saving} className="flex-1 py-2.5 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition disabled:opacity-60">
+              {saving ? "Salvando..." : "Confirmar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── GoalModal ────────────────────────────────────────────────────────────────
+
+function GoalModal({ goal, onClose, onSaved }) {
+  const isEditing = !!goal?.id;
+  const [step, setStep]                   = useState(isEditing ? 2 : 1);
+  const [type, setType]                   = useState(goal?.type || "");
+  const [title, setTitle]                 = useState(goal?.title || "");
+  const [targetAmount, setTargetAmount]   = useState(goal?.target_amount?.toString() || "");
+  const [paymentMethod, setPaymentMethod] = useState(goal?.payment_method || "");
+  const [category, setCategory]           = useState(goal?.category || "");
+  const [period, setPeriod]               = useState(goal?.period || "monthly");
+  const [startDate, setStartDate]         = useState(goal?.start_date || new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate]             = useState(goal?.end_date || endOfMonth());
+  const [isRecurring, setIsRecurring]     = useState(goal?.is_recurring || false);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState("");
+
+  useEffect(() => {
+    if (period === "monthly") setEndDate(endOfMonth());
+    if (period === "weekly")  setEndDate(endOfWeek());
+  }, [period]);
+
+  // Estimativa mensal necessária
+  const monthlyNeeded = (() => {
+    const target  = parseFloat(targetAmount);
+    if (!target || !endDate) return null;
+    const months = Math.ceil(daysUntil(endDate) / 30);
+    if (months <= 0) return null;
+    return target / months;
+  })();
+
+  async function handleSave() {
+    setError("");
+    const amount = parseFloat(targetAmount);
+    if (!title.trim())          return setError("Preencha o título da meta");
+    if (!amount || amount <= 0) return setError("Valor da meta inválido (mínimo R$ 1)");
+    if (!endDate)               return setError("Informe a data de término");
+
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setLoading(false); return; }
+
+    const payload = {
+      user_id:        session.user.id,
+      type,
+      title:          title.trim().slice(0, 255),
+      target_amount:  amount,
+      payment_method: paymentMethod || null,
+      category:       category || null,
+      period,
+      start_date:     startDate,
+      end_date:       endDate,
+      is_recurring:   isRecurring,
+    };
+
+    let err;
+    if (isEditing) {
+      ({ error: err } = await supabase.from("goals").update(payload).eq("id", goal.id).eq("user_id", session.user.id));
+    } else {
+      ({ error: err } = await supabase.from("goals").insert(payload));
+    }
+
+    setLoading(false);
+    if (err) return setError("Erro ao salvar meta. Tente novamente.");
+    onSaved();
+    onClose();
+  }
+
+  const selectedType = GOAL_TYPES.find((t) => t.id === type);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-xl w-full max-w-lg shadow-lg border border-slate-200 max-h-[90vh] overflow-y-auto mx-4">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            {!isEditing && (
+              <div className="flex gap-1">
+                {[1, 2].map((s) => (
+                  <span key={s} className={`h-1.5 rounded-full transition-all ${s === step ? "w-5 bg-primary-600" : "w-1.5 bg-slate-200"}`} />
+                ))}
+              </div>
+            )}
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">
+                {isEditing ? "Editar meta" : step === 1 ? "Qual é o seu objetivo?" : "Configurar meta"}
+              </h2>
+              {!isEditing && <p className="text-xs text-slate-400">Passo {step} de 2</p>}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition p-1">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-5">
+          {/* Step 1 — tipo */}
+          {step === 1 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {GOAL_TYPES.map((gt) => (
+                <button
+                  key={gt.id}
+                  onClick={() => { setType(gt.id); setStep(2); }}
+                  className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-primary-400 hover:bg-primary-50/50 transition group"
+                >
+                  <div className={`w-9 h-9 rounded-lg ${gt.color} flex items-center justify-center mb-3`}>
+                    <GoalTypeIcon icon={gt.icon} className="w-4.5 h-4.5" dark />
+                  </div>
+                  <div className="text-sm font-semibold text-slate-800">{gt.label}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">{gt.example}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Step 2 — detalhes */}
+          {step === 2 && (
+            <div className="space-y-4">
+              {selectedType && !isEditing && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setStep(1)} className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 transition">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Voltar
+                  </button>
+                  <span className={`flex items-center gap-1.5 text-xs rounded-full px-2.5 py-0.5 font-medium border ${selectedType.color} ${selectedType.iconColor} border-transparent`}>
+                    <GoalTypeIcon icon={selectedType.icon} className="w-3 h-3" dark />
+                    {selectedType.label}
+                  </span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Nome da meta</label>
+                <input
+                  type="text"
+                  placeholder={selectedType?.example || "Ex: Economizar R$ 1.000"}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  {type === "save" ? "Meta de economia (R$)" : "Limite (R$)"}
+                </label>
+                <input
+                  type="number" min="1" step="0.01" placeholder="0,00"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                {monthlyNeeded && monthlyNeeded > 0 && (
+                  <p className="text-xs text-primary-600 mt-1.5 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Poupe {fmtCurrency(monthlyNeeded)}/mês para atingir no prazo
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Forma de pagamento</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {(type === "control" || type === "reduce") && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Categoria (opcional)</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                  >
+                    <option value="">Todas as categorias</option>
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Período</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: "weekly",  label: "Semanal"       },
+                    { value: "monthly", label: "Mensal"        },
+                    { value: "custom",  label: "Personalizado" },
+                  ].map((p) => (
+                    <button
+                      key={p.value} type="button"
+                      onClick={() => setPeriod(p.value)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium border transition ${
+                        period === p.value
+                          ? "bg-primary-600 text-white border-primary-600"
+                          : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {period === "custom" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Início</label>
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Término</label>
+                    <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  </div>
+                </div>
+              )}
+
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <button
+                  type="button"
+                  onClick={() => setIsRecurring(v => !v)}
+                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${isRecurring ? "bg-primary-600 border-primary-600" : "bg-white border-slate-300"}`}
+                >
+                  {isRecurring && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                    </svg>
+                  )}
+                </button>
+                <span className="text-sm text-slate-600">Renovar automaticamente</span>
+              </label>
+
+              {error && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={handleSave} disabled={loading}
+                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-60"
+              >
+                {loading ? "Salvando..." : isEditing ? "Salvar alterações" : "Criar meta"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── GoalCard ─────────────────────────────────────────────────────────────────
+
+function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
+  const current  = calcProgress(goal, transactions);
+  const pct      = Math.min(100, Math.round((current / goal.target_amount) * 100));
+  const isSave   = goal.type === "save";
+  const isOver   = !isSave && pct >= 100;
+  const isWarn   = !isSave && pct >= 80 && pct < 100;
+  const isDone   = isSave && pct >= 100;
+  const days     = daysUntil(goal.end_date);
+
+  const gt = GOAL_TYPES.find((t) => t.id === goal.type);
+
+  const barColor =
+    isOver  ? "bg-red-500" :
+    isWarn  ? "bg-amber-400" :
+    isDone  ? "bg-emerald-500" :
+    isSave  ? "bg-primary-500" :
+    "bg-violet-500";
+
+  const statusBadge = isDone
+    ? { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", icon: "check", label: "Meta atingida!" }
+    : isOver
+    ? { bg: "bg-red-50",     border: "border-red-200",     text: "text-red-600",    icon: "warn",  label: "Limite ultrapassado!" }
+    : isWarn
+    ? { bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",  icon: "warn",  label: `${pct}% do limite usado` }
+    : null;
+
+  return (
+    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${
+      isOver ? "border-red-200" : isWarn ? "border-amber-200" : isDone ? "border-emerald-200" : "border-slate-200"
+    }`}>
+      {/* Progress accent bar on top */}
+      <div className="h-1 bg-slate-100">
+        <div
+          className={`h-full transition-all duration-700 ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      <div className="p-5">
+        {/* Status badge */}
+        {statusBadge && (
+          <div className={`flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1.5 mb-3 border ${statusBadge.bg} ${statusBadge.border} ${statusBadge.text}`}>
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {statusBadge.icon === "check"
+                ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                : <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              }
+            </svg>
+            {statusBadge.label}
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className={`w-9 h-9 rounded-xl ${gt?.color || "bg-slate-100"} flex items-center justify-center flex-shrink-0`}>
+              {gt && <GoalTypeIcon icon={gt.icon} className="w-4.5 h-4.5" dark />}
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-slate-800 text-sm truncate">{goal.title}</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {PAYMENT_METHODS.find((m) => m.value === (goal.payment_method || ""))?.label || "Todos os meios"}
+                {goal.category && ` · ${goal.category}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            <button onClick={() => onEdit(goal)} className="p-1.5 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+            <button onClick={() => onDelete(goal.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Amounts */}
+        <div className="flex items-end justify-between mb-2">
+          <div>
+            <span className="text-xl font-bold text-slate-800">{fmtCurrency(current)}</span>
+            <span className="text-xs text-slate-400 ml-1.5">de {fmtCurrency(goal.target_amount)}</span>
+          </div>
+          <span className={`text-sm font-semibold ${
+            isOver ? "text-red-500" : isWarn ? "text-amber-500" : isDone ? "text-emerald-600" : "text-slate-600"
+          }`}>{pct}%</span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-3">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {days !== null
+              ? days > 0 ? `${days} dia${days !== 1 ? "s" : ""} restantes` : days === 0 ? "Vence hoje" : "Encerrada"
+              : fmtDate(goal.end_date)
+            }
+          </div>
+          {isSave && !isDone && (
+            <button
+              onClick={() => onDeposit(goal)}
+              className="flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-2.5 py-1.5 rounded-lg transition"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Depositar
+            </button>
+          )}
+          {isDone && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Concluída
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Goals page ───────────────────────────────────────────────────────────────
 
 export default function Goals() {
-  const [financialProfile, setFinancialProfile] = useState(null);
-  const [financialGoals, setFinancialGoals] = useState([]);
-  const [recurringExpenses, setRecurringExpenses] = useState([]);
-  const [saveRate, setSaveRate] = useState(30);
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupContent, setPopupContent] = useState({ title: "", message: "" });
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [incomeInput, setIncomeInput] = useState(0);
-  const [goalTypeInput, setGoalTypeInput] = useState("save");
-  const [targetAmountInput, setTargetAmountInput] = useState(0);
-  const [targetDateInput, setTargetDateInput] = useState("");
-  const [goalDescInput, setGoalDescInput] = useState("");
-  const [formError, setFormError] = useState("");
-  const [savingGoal, setSavingGoal] = useState(false);
+  const [goals, setGoals]               = useState([]);
   const [transactions, setTransactions] = useState([]);
-  const [creditTransactions, setCreditTransactions] = useState([]);
-  const [closingDay, setClosingDay] = useState(25);
-  const [dueDay, setDueDay] = useState(5);
-  const [reduceRate, setReduceRate] = useState(15);
-  const [showRecurringModal, setShowRecurringModal] = useState(false);
-  const [recurringDraft, setRecurringDraft] = useState([]);
-  const [recurringError, setRecurringError] = useState("");
-  const [savingRecurring, setSavingRecurring] = useState(false);
-  const [removedRecurringIds, setRemovedRecurringIds] = useState([]);
-  const navigate = useNavigate();
+  const [loading, setLoading]           = useState(true);
+  const [modal, setModal]               = useState(null);
+  const [deleteId, setDeleteId]         = useState(null);
+  const [depositGoal, setDepositGoal]   = useState(null);
 
-  const fetchData = async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session) {
-      navigate("/login");
-      return;
-    }
-    const user = sessionData.session.user;
-
-    const [profileRes, goalsRes, recurringRes, txRes, ccRes, ccSettingsRes] = await Promise.all([
-      supabase.from("financial_profile").select("monthly_income").eq("user_id", user.id).maybeSingle(),
-      supabase.from("financial_goals").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("recurring_expenses").select("id, name, amount, active, category, day_of_month").eq("user_id", user.id),
-      supabase.from("transactions").select("amount, type, category, title, created_at").eq("user_id", user.id),
-      supabase.from("credit_card_transactions").select("amount, title, merchant, created_at").eq("user_id", user.id),
-      supabase.from("credit_card_settings").select("closing_day, due_day").eq("user_id", user.id).maybeSingle(),
+  const load = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const [{ data: goalsData }, { data: txData }] = await Promise.all([
+      supabase.from("goals").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false }),
+      supabase.from("transactions").select("*").eq("user_id", session.user.id),
     ]);
-
-    const profileData = profileRes.data;
-    const goalsData = goalsRes.data;
-    const recurringData = recurringRes.data;
-    const txData = txRes.data;
-    const ccData = ccRes.data;
-    const ccSettings = ccSettingsRes.data;
-
-    setFinancialProfile(profileData || null);
-    setFinancialGoals(goalsData || []);
-    setRecurringExpenses(recurringData || []);
+    setGoals(goalsData || []);
     setTransactions(txData || []);
-    setCreditTransactions(ccData || []);
-    if (ccSettings?.closing_day) setClosingDay(ccSettings.closing_day);
-    if (ccSettings?.due_day) setDueDay(ccSettings.due_day);
+    setLoading(false);
+  }, []);
 
-    // Pre-fill modal fields
-    setIncomeInput(Number(profileData?.monthly_income || 0));
-    const current = goalsData && goalsData.length ? goalsData[0] : null;
-    if (current) {
-      setGoalTypeInput(current.type || "save");
-      setTargetAmountInput(Number(current.target_amount || 0));
-      setTargetDateInput(current.target_date || "");
-      setGoalDescInput(current.description || "");
-    } else {
-      setGoalTypeInput("save");
-      setTargetAmountInput(0);
-      setTargetDateInput("");
-      setGoalDescInput("");
-    }
-  };
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    fetchData();
-  }, [navigate]);
-
-  const monthlyIncome = Number(financialProfile?.monthly_income || 0);
-  const fixedExpensesTotal = recurringExpenses
-    .filter((r) => r.active !== false)
-    .reduce((s, r) => s + Number(r.amount || 0), 0);
-
-  function getPeriodEndForDate(d, closing) {
-    const day = d.getDate();
-    let month = d.getMonth();
-    let year = d.getFullYear();
-    if (day >= closing) {
-      month = (month + 1) % 12;
-      if (month === 0) year += 1;
-    }
-    return { month, year };
+  async function handleDelete() {
+    if (!deleteId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from("goals").delete().eq("id", deleteId).eq("user_id", session.user.id);
+    setDeleteId(null);
+    load();
   }
 
-  const currentPeriodEnd = getPeriodEndForDate(new Date(), closingDay);
-  const creditInvoiceAmount = creditTransactions
-    .filter((t) => {
-      if (!t?.created_at) return false;
-      const d = new Date(t.created_at);
-      const { month, year } = getPeriodEndForDate(d, closingDay);
-      return month === currentPeriodEnd.month && year === currentPeriodEnd.year;
-    })
-    .reduce((sum, t) => {
-      const val = Number(t.amount || 0);
-      if (val > 0) return sum + val;
-      return sum - Math.abs(val);
-    }, 0);
+  // ── Summary stats ──────────────────────────────────────────────────────────
+  const saveGoals  = goals.filter((g) => g.type === "save");
+  const totalSaved = saveGoals.reduce((sum, g) => sum + calcProgress(g, transactions), 0);
+  const totalTarget = saveGoals.reduce((sum, g) => sum + Number(g.target_amount), 0);
+  const doneCount  = saveGoals.filter((g) => {
+    const p = calcProgress(g, transactions);
+    return p >= Number(g.target_amount);
+  }).length;
 
-  const transferSpent = transactions
-    .filter((t) => {
-      if (t.type !== "expense") return false;
-      const cat = (t.category || "").toLowerCase();
-      const title = (t.title || "").toLowerCase();
-      return cat.includes("transfer") || cat.includes("transf") || cat.includes("pix") || title.includes("transfer");
-    })
-    .reduce((s, t) => s + Number(t.amount || 0), 0);
+  // ── Alerts ─────────────────────────────────────────────────────────────────
+  const alerts = goals.filter((g) => {
+    if (g.type === "save") return false;
+    const pct = Math.round((calcProgress(g, transactions) / g.target_amount) * 100);
+    return pct >= 80;
+  });
 
-  const burnWithCardAndTransfers = fixedExpensesTotal + creditInvoiceAmount + transferSpent;
-  const netAfterAll = monthlyIncome - burnWithCardAndTransfers;
-  const reduceCut = Math.max(0, Math.round(((creditInvoiceAmount + transferSpent) * reduceRate) / 100));
-  const netAfterReduction = netAfterAll + reduceCut;
-
-  const budgetComparisonData = [
-    { name: "Renda", value: monthlyIncome },
-    { name: "Fixos", value: fixedExpensesTotal },
-  ];
-
-  const availableMonthly = Math.max(0, monthlyIncome - fixedExpensesTotal);
-  const currentGoal = financialGoals && financialGoals.length > 0 ? financialGoals[0] : null;
-  const targetAmount = currentGoal?.type === "save" ? Number(currentGoal?.target_amount || 0) : 0;
-  const monthlySaving = Math.max(0, Math.round((availableMonthly * saveRate) / 100));
-  const estimatedMonths = monthlySaving > 0 && targetAmount > 0 ? Math.ceil(targetAmount / monthlySaving) : null;
-
-  let monthsUntilTarget = null;
-  if (currentGoal?.target_date) {
-    const target = new Date(currentGoal.target_date);
-    const now = new Date();
-    const diffMs = target.getTime() - now.getTime();
-    const approxMonths = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30)));
-    monthsUntilTarget = approxMonths;
-  }
-
-  const tips = [];
-  if (!monthlyIncome) {
-    tips.push({ id: "income", title: "Renda não informada", message: "Defina sua renda mensal para estimarmos o tempo de alcance da meta." });
-  }
-  if (monthlyIncome > 0) {
-    const fixedRatio = fixedExpensesTotal / monthlyIncome;
-    if (fixedRatio >= 0.6) tips.push({ id: "high-fixed", title: "Gastos fixos altos", message: "Seus gastos fixos estão acima de 60% da renda. Considere renegociar ou cortar assinaturas." });
-    else if (fixedRatio >= 0.4) tips.push({ id: "balanced-fixed", title: "Fixos moderados", message: "Seus gastos fixos estão moderados. Um ajuste pequeno pode acelerar sua meta." });
-
-    const cardRatio = creditInvoiceAmount / monthlyIncome;
-    if (creditInvoiceAmount > 0 && cardRatio >= 0.4) {
-      tips.push({ id: "card-high", title: "Fatura do cartão pesada", message: "A fatura do período atual consome mais de 40% da renda. Reveja compras e priorize quitar valores maiores." });
-    } else if (creditInvoiceAmount > 0 && cardRatio >= 0.25) {
-      tips.push({ id: "card-medium", title: "Fatura relevante", message: "Sua fatura está acima de 25% da renda. Vale cortar supérfluos ou antecipar parcelas." });
-    }
-
-    if (transferSpent > monthlyIncome * 0.2) {
-      tips.push({ id: "transfer", title: "Transferências elevadas", message: "Transferências/PIX estão altas neste mês. Confirme se não há repasses recorrentes desnecessários." });
-    }
-
-    if (netAfterAll < 0) {
-      tips.push({ id: "negative-margin", title: "Margem negativa", message: "Somando fixos, fatura e transferências, você está no vermelho. Reduzir 10-20% desses itens já melhora o fluxo." });
-    }
-  }
-  if (currentGoal?.type === "save" && targetAmount > 0) {
-    if (monthlySaving === 0) tips.push({ id: "no-saving", title: "Sem margem para poupar", message: "No momento não há sobra mensal. Reduza despesas ou aumente a renda para viabilizar a meta." });
-    else if (estimatedMonths) tips.push({ id: "eta", title: "Estimativa de tempo", message: `Guardando ${saveRate}% da sobra, você leva cerca de ${estimatedMonths} ${estimatedMonths === 1 ? "mês" : "meses"} para atingir R$ ${targetAmount.toFixed(2)}.` });
-    if (estimatedMonths && monthsUntilTarget !== null) {
-      if (estimatedMonths <= monthsUntilTarget) tips.push({ id: "congrats", title: "Parabéns!", message: "Você deve alcançar a meta antes da data planejada. Mantenha o ritmo! 🎉" });
-      else tips.push({ id: "behind", title: "Ajuste necessário", message: "No ritmo atual, você passará da data alvo. Considere aumentar a taxa de poupança ou reduzir despesas." });
-    }
-  }
-
-  useEffect(() => {
-    const congratsTip = tips.find((t) => t.id === "congrats");
-    const behindTip = tips.find((t) => t.id === "behind");
-    if (congratsTip) {
-      setPopupContent({ title: congratsTip.title, message: congratsTip.message });
-      setShowPopup(true);
-    } else if (behindTip) {
-      setPopupContent({ title: behindTip.title, message: behindTip.message });
-      setShowPopup(true);
-    } else {
-      setShowPopup(false);
-    }
-  }, [monthlyIncome, fixedExpensesTotal, saveRate, currentGoal?.target_date, targetAmount]);
-
-  async function handleSaveGoal() {
-    setFormError("");
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session) {
-      navigate("/login");
-      return;
-    }
-    const userId = sessionData.session.user.id;
-
-    if (!incomeInput || incomeInput <= 0) {
-      setFormError("Informe uma renda mensal válida.");
-      return;
-    }
-    if (goalTypeInput === "save" && (!targetAmountInput || targetAmountInput <= 0)) {
-      setFormError("Informe o valor da meta de poupança.");
-      return;
-    }
-
-    try {
-      setSavingGoal(true);
-      await supabase.from("financial_profile").upsert({ user_id: userId, monthly_income: Number(incomeInput) });
-
-      if (currentGoal?.id) {
-        await supabase
-          .from("financial_goals")
-          .update({
-            type: goalTypeInput,
-            target_amount: goalTypeInput === "save" ? Number(targetAmountInput) : null,
-            target_date: targetDateInput || null,
-            description: goalDescInput || null,
-          })
-          .eq("id", currentGoal.id);
-      } else {
-        await supabase.from("financial_goals").insert({
-          user_id: userId,
-          type: goalTypeInput,
-          target_amount: goalTypeInput === "save" ? Number(targetAmountInput) : null,
-          target_date: targetDateInput || null,
-          description: goalDescInput || null,
-        });
-      }
-
-      await fetchData();
-      setShowEditModal(false);
-    } catch (e) {
-      setFormError("Não foi possível salvar. Tente novamente.");
-    } finally {
-      setSavingGoal(false);
-    }
-  }
-
-  function openRecurringModal() {
-    setRecurringError("");
-    setRemovedRecurringIds([]);
-    setRecurringDraft((recurringExpenses || []).map((r) => ({ ...r, category: r.category || "", day_of_month: r.day_of_month ?? "" })));
-    setShowRecurringModal(true);
-  }
-
-  function updateRecurringField(targetId, field, value) {
-    setRecurringDraft((list) => list.map((item) => (item.id === targetId ? { ...item, [field]: value } : item)));
-  }
-
-  function handleAddRecurringRow() {
-    setRecurringDraft((list) => [
-      ...list,
-      { id: `temp-${Date.now()}`, isNew: true, name: "", amount: "", category: "", day_of_month: "", active: true },
-    ]);
-  }
-
-  function handleRemoveRecurringRow(targetId) {
-    setRecurringDraft((list) => {
-      const target = list.find((r) => r.id === targetId);
-      if (target && !target.isNew && target.id) {
-        setRemovedRecurringIds((ids) => [...ids, target.id]);
-      }
-      return list.filter((r) => r.id !== targetId);
-    });
-  }
-
-  async function handleSaveRecurring() {
-    setRecurringError("");
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session) {
-      navigate("/login");
-      return;
-    }
-    const userId = sessionData.session.user.id;
-
-    const normalized = recurringDraft.map((r) => {
-      const amountValue = Number(r.amount || 0);
-      return {
-        id: r.isNew ? null : r.id,
-        user_id: userId,
-        name: (r.name || "").trim(),
-        amount: amountValue,
-        category: (r.category || "").trim() || null,
-        day_of_month: r.day_of_month ? Number(r.day_of_month) : null,
-        active: r.active !== false,
-      };
-    });
-
-    for (const row of normalized) {
-      if (!row.name) {
-        setRecurringError("Preencha o nome de todos os gastos fixos.");
-        return;
-      }
-      if (!row.amount || row.amount <= 0) {
-        setRecurringError("Informe valores maiores que zero.");
-        return;
-      }
-      if (row.day_of_month && (row.day_of_month < 1 || row.day_of_month > 31)) {
-        setRecurringError("Use um dia do mês entre 1 e 31.");
-        return;
-      }
-    }
-
-    const updates = normalized.filter((r) => r.id);
-    const inserts = normalized.filter((r) => !r.id);
-
-    try {
-      setSavingRecurring(true);
-      if (updates.length) {
-        await supabase.from("recurring_expenses").upsert(updates);
-      }
-      if (inserts.length) {
-        const insertPayload = inserts.map(({ id, ...rest }) => rest);
-        await supabase.from("recurring_expenses").insert(insertPayload);
-      }
-      if (removedRecurringIds.length) {
-        await supabase.from("recurring_expenses").delete().in("id", removedRecurringIds);
-      }
-      await fetchData();
-      setShowRecurringModal(false);
-    } catch (e) {
-      setRecurringError("Não foi possível salvar os gastos fixos.");
-    } finally {
-      setSavingRecurring(false);
-    }
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      {showPopup && (
-        <div className="bg-primary-50 border border-primary-200 rounded-xl p-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-medium text-primary-800 mb-1 text-sm">{popupContent.title}</h3>
-              <p className="text-sm text-primary-700">{popupContent.message}</p>
-            </div>
-            <button onClick={() => setShowPopup(false)} className="text-sm text-slate-500 px-2 py-1 rounded-lg hover:bg-white transition">✕</button>
-          </div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-800">Metas financeiras</h1>
+          <p className="text-sm text-slate-500">Acompanhe seus objetivos e mantenha o controle</p>
         </div>
-      )}
-
-      <div className="flex items-center gap-2">
-        <h2 className="text-xl font-semibold text-slate-800">Metas & Orçamento</h2>
+        <button
+          onClick={() => setModal({})}
+          className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-2 self-start sm:self-auto"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Nova meta
+        </button>
       </div>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Income vs Fixed Expenses */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-slate-700">Renda x Gastos fixos</h3>
-            <button onClick={openRecurringModal} className="text-xs bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg font-medium transition">Alterar gastos fixos</button>
+      {/* Summary — só aparece se há metas */}
+      {goals.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
+            <p className="text-xs text-slate-400 mb-0.5">Metas ativas</p>
+            <p className="text-xl font-bold text-slate-800">{goals.length}</p>
           </div>
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={budgetComparisonData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#475569' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `R$ ${Number(v).toFixed(0)}`} />
-                <Tooltip formatter={(v, n) => [`R$ ${Number(v).toFixed(2)}`, n]} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {budgetComparisonData.map((item, idx) => (
-                    <Cell key={idx} fill={item.name === 'Renda' ? '#10b981' : '#f87171'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
+            <p className="text-xs text-slate-400 mb-0.5">Total poupado</p>
+            <p className="text-xl font-bold text-primary-600 truncate">{fmtCurrency(totalSaved)}</p>
+            {totalTarget > 0 && <p className="text-xs text-slate-400 mt-0.5">de {fmtCurrency(totalTarget)}</p>}
           </div>
-          <div className="mt-3 text-xs text-slate-500">
-            <span className="font-medium text-slate-700">Renda:</span> R$ {monthlyIncome.toFixed(2)} • <span className="font-medium text-slate-700">Fixos:</span> R$ {fixedExpensesTotal.toFixed(2)}
-          </div>
-        </div>
-
-        {/* Current Goal */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-sm font-medium text-slate-700 mb-3">Meta atual</h3>
-          <div className="text-sm text-slate-600">
-            {financialGoals && financialGoals.length > 0 ? (
-              <div>
-                <p><span className="font-medium text-slate-800">Tipo:</span> {financialGoals[0].type === 'save' ? 'Juntar dinheiro' : 'Reduzir gastos'}</p>
-                {financialGoals[0].type === 'save' && (
-                  <p className="mt-1"><span className="font-medium text-slate-800">Alvo:</span> R$ {Number(financialGoals[0].target_amount||0).toFixed(2)} {financialGoals[0].target_date?`até ${new Date(financialGoals[0].target_date).toLocaleDateString()}`:''}</p>
-                )}
-                {financialGoals[0].description && (
-                  <p className="mt-1 text-slate-500">{financialGoals[0].description}</p>
-                )}
-              </div>
-            ) : (
-              <p>Nenhuma meta definida ainda.</p>
-            )}
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={() => setShowEditModal(true)} className="text-xs bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg font-medium transition">Ajustar metas</button>
-            <button onClick={() => navigate('/transactions')} className="text-xs bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-1.5 rounded-lg transition">Ver transações</button>
-          </div>
-
-          {tips.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {tips.slice(0,3).map((t) => (
-                <div key={t.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm">
-                  <p className="font-medium text-slate-700">{t.title}</p>
-                  <p className="text-slate-500">{t.message}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Reduction Plan */}
-      {(currentGoal?.type === 'reduce' || goalTypeInput === 'reduce') && (
-        <section>
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-sm font-medium text-slate-700 mb-1">Plano de redução</h3>
-            <p className="text-xs text-slate-500 mb-4">Considerando renda fixa, gastos fixos, transferências e fatura do cartão.</p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-400">Renda fixa</p>
-                <p className="font-medium text-slate-800">R$ {monthlyIncome.toFixed(2)}</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-400">Gastos fixos</p>
-                <p className="font-medium text-slate-800">R$ {fixedExpensesTotal.toFixed(2)}</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-400">Fatura (período atual)</p>
-                <p className="font-medium text-slate-800">R$ {Math.max(0, creditInvoiceAmount).toFixed(2)}</p>
-              </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                <p className="text-xs text-slate-400">Transferências / PIX</p>
-                <p className="font-medium text-slate-800">R$ {transferSpent.toFixed(2)}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 text-sm text-slate-600">
-              <p>Margem atual: <span className={`font-medium ${netAfterAll < 0 ? 'text-red-600' : 'text-slate-800'}`}>R$ {netAfterAll.toFixed(2)}</span></p>
-              <label className="block text-xs font-medium text-slate-500 mt-3 mb-1">Quanto cortar desses gastos (%)</label>
-              <input type="range" min="0" max="40" value={reduceRate} onChange={(e)=>setReduceRate(Number(e.target.value))} className="w-full accent-primary-600" />
-              <p className="mt-2">Corte estimado: <span className="font-medium">R$ {reduceCut.toFixed(2)}</span> • Nova margem: <span className={`font-medium ${netAfterReduction < 0 ? 'text-red-600' : 'text-emerald-600'}`}>R$ {netAfterReduction.toFixed(2)}</span></p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Recurring Expenses Modal */}
-      {showRecurringModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-[2px] flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-lg w-full max-w-4xl p-6 relative">
-            <button onClick={() => setShowRecurringModal(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition">✕</button>
-            <h3 className="text-lg font-semibold text-slate-800">Gastos fixos</h3>
-            <p className="text-xs text-slate-500 mb-4">Edite valores, ative/desative e remova o que não fizer sentido.</p>
-
-            {recurringError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{recurringError}</div>}
-
-            <div className="space-y-2 max-h-[420px] overflow-y-auto">
-              {recurringDraft.length ? recurringDraft.map((r) => (
-                <div key={r.id} className="grid grid-cols-12 gap-2 items-center border border-slate-200 rounded-lg px-3 py-2 bg-slate-50">
-                  <input className="col-span-3 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Nome" value={r.name} onChange={(e)=>updateRecurringField(r.id, "name", e.target.value)} />
-                  <input type="number" step="0.01" min="0" className="col-span-2 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Valor" value={r.amount ?? ""} onChange={(e)=>updateRecurringField(r.id, "amount", e.target.value)} />
-                  <input className="col-span-3 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Categoria" value={r.category ?? ""} onChange={(e)=>updateRecurringField(r.id, "category", e.target.value)} />
-                  <input type="number" min="1" max="31" className="col-span-2 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Dia" value={r.day_of_month ?? ""} onChange={(e)=>updateRecurringField(r.id, "day_of_month", e.target.value)} />
-                  <div className="col-span-1 flex items-center justify-center">
-                    <label className="flex items-center gap-1 text-xs text-slate-600">
-                      <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" checked={r.active !== false} onChange={(e)=>updateRecurringField(r.id, "active", e.target.checked)} />
-                      Ativo
-                    </label>
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    <button type="button" className="text-xs text-red-500 hover:text-red-600" onClick={()=>handleRemoveRecurringRow(r.id)}>Remover</button>
-                  </div>
-                </div>
-              )) : (
-                <p className="text-sm text-slate-500 border border-dashed border-slate-300 rounded-lg p-3">Nenhum gasto fixo cadastrado.</p>
-              )}
-            </div>
-
-            <div className="mt-4 flex justify-between items-center">
-              <button onClick={handleAddRecurringRow} className="text-xs border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50 transition">Adicionar linha</button>
-              <div className="flex gap-2">
-                <button onClick={()=>setShowRecurringModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">Cancelar</button>
-                <button onClick={handleSaveRecurring} disabled={savingRecurring} className={`px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition ${savingRecurring?'opacity-80 cursor-not-allowed':''}`}>{savingRecurring ? 'Salvando...' : 'Salvar gastos'}</button>
-              </div>
-            </div>
+          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
+            <p className="text-xs text-slate-400 mb-0.5">Concluídas</p>
+            <p className="text-xl font-bold text-emerald-600">{doneCount}</p>
           </div>
         </div>
       )}
 
-      {/* Edit Goal Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-[2px] flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-lg w-full max-w-lg p-6 relative">
-            <button onClick={() => setShowEditModal(false)} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition">✕</button>
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Ajustar renda e meta</h3>
-
-            {formError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</div>}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Renda mensal</label>
-                <input type="number" min="0" value={incomeInput} onChange={(e)=>setIncomeInput(Number(e.target.value))} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+      {/* Alertas */}
+      {alerts.length > 0 && (
+        <div className="space-y-2">
+          {alerts.map((g) => {
+            const current = calcProgress(g, transactions);
+            const pct     = Math.min(100, Math.round((current / g.target_amount) * 100));
+            const isOver  = pct >= 100;
+            return (
+              <div key={g.id} className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm border ${
+                isOver ? "bg-red-50 text-red-700 border-red-200" : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}>
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <span>
+                  <strong>"{g.title}"</strong>
+                  {isOver
+                    ? ` — limite ultrapassado (${fmtCurrency(current)} de ${fmtCurrency(g.target_amount)})`
+                    : ` — ${pct}% do limite usado (${fmtCurrency(current)} de ${fmtCurrency(g.target_amount)})`
+                  }
+                </span>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Tipo de meta</label>
-                <div className="flex gap-2">
-                  <button type="button" onClick={()=>setGoalTypeInput("save")} className={`px-3 py-2 rounded-lg border text-sm transition ${goalTypeInput==='save' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600'}`}>Juntar dinheiro</button>
-                  <button type="button" onClick={()=>setGoalTypeInput("reduce")} className={`px-3 py-2 rounded-lg border text-sm transition ${goalTypeInput==='reduce' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-600'}`}>Reduzir gastos</button>
-                </div>
-              </div>
+      {/* Metas */}
+      {goals.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <img src={iconBag} alt="" className="w-8 h-8" style={{ filter: "brightness(0) saturate(100%) opacity(0.3)" }} />
+          </div>
+          <h3 className="text-base font-semibold text-slate-700 mb-1">Nenhuma meta criada</h3>
+          <p className="text-sm text-slate-400 max-w-xs mx-auto mb-5">
+            Defina objetivos financeiros e acompanhe seu progresso mês a mês.
+          </p>
+          <button
+            onClick={() => setModal({})}
+            className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition"
+          >
+            Criar primeira meta
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {goals.map((g) => (
+            <GoalCard
+              key={g.id}
+              goal={g}
+              transactions={transactions}
+              onEdit={(g) => setModal({ goal: g })}
+              onDelete={(id) => setDeleteId(id)}
+              onDeposit={(g) => setDepositGoal(g)}
+            />
+          ))}
+        </div>
+      )}
 
-              {goalTypeInput === "save" && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Valor alvo</label>
-                    <input type="number" min="0" value={targetAmountInput} onChange={(e)=>setTargetAmountInput(Number(e.target.value))} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Data alvo</label>
-                    <input type="date" value={targetDateInput} onChange={(e)=>setTargetDateInput(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                  </div>
-                </div>
-              )}
+      {/* Modal criar/editar */}
+      {modal !== null && (
+        <GoalModal
+          goal={modal.goal}
+          onClose={() => setModal(null)}
+          onSaved={load}
+        />
+      )}
 
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Descrição (opcional)</label>
-                <input type="text" value={goalDescInput} onChange={(e)=>setGoalDescInput(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-              </div>
+      {/* Modal depositar */}
+      {depositGoal && (
+        <DepositModal
+          goal={depositGoal}
+          onClose={() => setDepositGoal(null)}
+          onSaved={load}
+        />
+      )}
+
+      {/* Modal deletar */}
+      {deleteId && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
+          <div className="bg-white p-6 rounded-xl w-full max-w-sm mx-4 text-center border border-slate-200 shadow-lg">
+            <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </div>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button onClick={()=>setShowEditModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">Cancelar</button>
-              <button onClick={handleSaveGoal} disabled={savingGoal} className={`px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition ${savingGoal?'opacity-80 cursor-not-allowed':''}`}>{savingGoal ? 'Salvando...' : 'Salvar'}</button>
+            <h2 className="text-base font-semibold text-slate-800 mb-1">Excluir meta</h2>
+            <p className="text-sm text-slate-500 mb-5">Esta ação não pode ser desfeita.</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg border border-slate-200 transition">
+                Cancelar
+              </button>
+              <button onClick={handleDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
+                Excluir
+              </button>
             </div>
           </div>
         </div>

@@ -35,8 +35,8 @@ export default function Profile() {
   // Dados financeiros
   const [monthBalance, setMonthBalance] = useState(null);
   const [totalInvested, setTotalInvested] = useState(null);
-  const [activeGoals, setActiveGoals] = useState([]);
   const [financialProfile, setFinancialProfile] = useState(null);
+  const [cards, setCards] = useState([]);
 
   const navigate = useNavigate();
 
@@ -54,14 +54,14 @@ export default function Profile() {
         { data: profileData },
         { data: txData },
         { data: invData },
-        { data: goalData },
         { data: finProfileData },
+        { data: cardsData },
       ] = await Promise.all([
         supabase.from("profiles").select("id, name, birth_date").eq("id", user.id).single(),
         supabase.from("transactions").select("type, amount").eq("user_id", user.id).gte("created_at", monthStart).lte("created_at", monthEnd),
         supabase.from("investments").select("amount").eq("user_id", user.id),
-        supabase.from("financial_goals").select("*").eq("user_id", user.id),
         supabase.from("financial_profile").select("monthly_income, spending_limit").eq("user_id", user.id).maybeSingle(),
+        supabase.from("credit_cards").select("id, name, last_four").eq("user_id", user.id).order("created_at"),
       ]);
 
       if (profileData) {
@@ -77,8 +77,8 @@ export default function Profile() {
       }
 
       setTotalInvested((invData || []).reduce((s, i) => s + Number(i.amount || 0), 0));
-      setActiveGoals(goalData || []);
       setFinancialProfile(finProfileData || null);
+      setCards(cardsData || []);
       setLoading(false);
     }
     loadAll();
@@ -224,33 +224,53 @@ export default function Profile() {
         </div>
       </motion.div>
 
-      {/* METAS ATIVAS */}
-      {activeGoals.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.14 }}
-        >
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">Metas ativas</h2>
-          <div className="space-y-2">
-            {activeGoals.map(goal => (
-              <div key={goal.id} className="bg-white rounded-xl border border-slate-200 px-4 py-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${goal.type === "save" ? "bg-emerald-500" : "bg-amber-400"}`} />
-                  <p className="text-sm text-slate-700 truncate">{goal.description}</p>
+
+
+      {/* MEUS CARTÕES */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.17 }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-slate-700">Meus cartões</h2>
+          <button
+            onClick={() => navigate("/settings")}
+            className="text-xs text-primary-600 hover:text-primary-700 transition"
+          >
+            Gerenciar
+          </button>
+        </div>
+        {cards.length === 0 ? (
+          <div className="bg-white rounded-xl border border-dashed border-slate-200 p-5 text-center">
+            <p className="text-sm text-slate-400 mb-2">Nenhum cartão cadastrado</p>
+            <button
+              onClick={() => navigate("/settings")}
+              className="text-xs text-primary-600 font-medium hover:text-primary-700 transition"
+            >
+              + Adicionar cartão
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {cards.map(card => (
+              <div key={card.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
                 </div>
-                <div className="flex-shrink-0 text-right">
-                  {goal.type === "save" && goal.target_amount && (
-                    <p className="text-sm font-semibold text-slate-800">{fmt(goal.target_amount)}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{card.name}</p>
+                  {card.last_four && (
+                    <p className="text-xs text-slate-400">•••• {card.last_four}</p>
                   )}
-                  <p className="text-xs text-slate-400">{goal.type === "save" ? "Economizar" : "Reduzir gastos"}</p>
                 </div>
               </div>
             ))}
           </div>
-        </motion.div>
-      )}
-
+        )}
+      </motion.div>
 
       {/* ZONA DE PERIGO */}
       <motion.div

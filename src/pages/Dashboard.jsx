@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { getEffectiveBillingDate } from "../utils/billing";
 
 import {
   ResponsiveContainer,
@@ -17,6 +18,7 @@ import {
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [prevMonthTransactions, setPrevMonthTransactions] = useState([]);
+  const [cards, setCards] = useState([]);
   const [userName, setUserName] = useState("");
   const [tipIndex, setTipIndex] = useState(0);
   const [showTip, setShowTip] = useState(true);
@@ -44,19 +46,31 @@ export default function Dashboard() {
       const name = profileData?.name || user.email?.split("@")[0] || "Usuário";
       setUserName(name);
 
-      const monthStart = new Date(currentYear, currentMonth, 1).toISOString();
-      const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59).toISOString();
+      // Load 2 months back → 1 month forward to capture billing cycle shifts
+      const loadStart = new Date(currentYear, currentMonth - 1, 1).toISOString();
+      const loadEnd = new Date(currentYear, currentMonth + 2, 0, 23, 59, 59).toISOString();
 
-      const prevStart = new Date(prevYear, prevMonth, 1).toISOString();
-      const prevEnd = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59).toISOString();
-
-      const [{ data: txData }, { data: prevTxData }] = await Promise.all([
-        supabase.from("transactions").select("*").eq("user_id", user.id).gte("created_at", monthStart).lte("created_at", monthEnd).order("created_at", { ascending: false }),
-        supabase.from("transactions").select("*").eq("user_id", user.id).gte("created_at", prevStart).lte("created_at", prevEnd),
+      const [{ data: allTxData }, { data: cardsData }] = await Promise.all([
+        supabase.from("transactions").select("*").eq("user_id", user.id).gte("created_at", loadStart).lte("created_at", loadEnd).order("created_at", { ascending: false }),
+        supabase.from("credit_cards").select("id, name, last_four, closing_day").eq("user_id", user.id),
       ]);
 
-      setTransactions(txData || []);
-      setPrevMonthTransactions(prevTxData || []);
+      const loadedCards = cardsData || [];
+      const allTxs = allTxData || [];
+
+      // Filter by effective billing date
+      const thisTxs = allTxs.filter(t => {
+        const d = getEffectiveBillingDate(t, loadedCards);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      });
+      const prevTxs = allTxs.filter(t => {
+        const d = getEffectiveBillingDate(t, loadedCards);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+      });
+
+      setCards(loadedCards);
+      setTransactions(thisTxs);
+      setPrevMonthTransactions(prevTxs);
     }
     loadData();
   }, [navigate]);
@@ -118,8 +132,6 @@ export default function Dashboard() {
   // ALERTAS INTELIGENTES
   // =====================
   const alerts = [];
-  if (balance < 0)
-    alerts.push({ type: "danger", msg: "Saldo negativo este mês — revise seus gastos urgentemente." });
   if (prevExpense > 0 && expense > prevExpense * 1.15)
     alerts.push({ type: "warning", msg: `Gastos ${(((expense / prevExpense) - 1) * 100).toFixed(0)}% acima do mês anterior (mês passado: R$ ${prevExpense.toFixed(2)})` });
   if (projectedBalance < 0 && balance >= 0)
@@ -157,7 +169,6 @@ export default function Dashboard() {
   // =====================
   const tips = [
     { id: "ok", title: "Tudo sob controle", message: "Seu saldo está equilibrado — continue acompanhando.", condition: () => balance >= 0 },
-    { id: "negative", title: "Fluxo de caixa negativo", message: "Você está gastando mais do que ganha — reveja despesas recorrentes.", condition: () => balance < 0 },
     { id: "saving-great", title: "Ótima taxa de poupança!", message: `Você está poupando ${savingsRate.toFixed(0)}% da renda — continue assim!`, condition: () => savingsRate >= 20 },
     { id: "increase-saving", title: "Aumente sua poupança", message: "Tente poupar pelo menos 20% da renda mensalmente para construir reservas.", condition: () => savingsRate >= 0 && savingsRate < 20 },
     ...(topCategories[0] ? [{ id: "top-cat", title: `Maior gasto: ${topCategories[0][0]}`, message: `Você gastou R$ ${topCategories[0][1].toFixed(2)} com ${topCategories[0][0]} este mês.` }] : []),

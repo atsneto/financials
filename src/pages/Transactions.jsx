@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { getEffectiveBillingDate } from "../utils/billing";
+import iconMultiple from "../icons/multiple-svgrepo-com.svg";
 import {
   ResponsiveContainer,
   LineChart,
@@ -27,6 +29,31 @@ export default function Transactions() {
   const [type, setType] = useState("expense");
   const [category, setCategory] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("debit_pix");
+  const [creditCardId, setCreditCardId] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [cards, setCards] = useState([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+  const [cardError, setCardError] = useState("");
+
+  // Edição em massa por nome
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkSourceTitle, setBulkSourceTitle] = useState("");
+  const [bulkNewTitle, setBulkNewTitle] = useState("");
+  const [bulkNewCategory, setBulkNewCategory] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  // Seleção múltipla
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isSelectionEditOpen, setIsSelectionEditOpen] = useState(false);
+  const [selCategory, setSelCategory] = useState("");
+  const [selType, setSelType] = useState("");
+  const [selPayment, setSelPayment] = useState("");
+  const [applyCategory, setApplyCategory] = useState(false);
+  const [applyType, setApplyType] = useState(false);
+  const [applyPayment, setApplyPayment] = useState(false);
+  const [selCreditCardId, setSelCreditCardId] = useState("");
+  const [selSaving, setSelSaving] = useState(false);
+
   const [csvFile, setCsvFile] = useState(null);
   const [loadingCsv, setLoadingCsv] = useState(false);
   const [csvMessage, setCsvMessage] = useState("");
@@ -41,6 +68,7 @@ export default function Transactions() {
 
   useEffect(() => {
     loadData();
+    loadCards();
   }, []);
 
   useEffect(() => {
@@ -73,6 +101,19 @@ export default function Transactions() {
     navigate("/login");
   }
 
+  async function loadCards() {
+    setLoadingCards(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setLoadingCards(false); return; }
+    const { data } = await supabase
+      .from("credit_cards")
+      .select("id, name, last_four, closing_day")
+      .eq("user_id", session.user.id)
+      .order("created_at");
+    setCards(data || []);
+    setLoadingCards(false);
+  }
+
   function openAddModal() {
     setEditingTx(null);
     setTitle("");
@@ -80,8 +121,12 @@ export default function Transactions() {
     setCategory("");
     setType("expense");
     setPaymentMethod("debit_pix");
+    setCreditCardId("");
+    setCardError("");
+    setDate(new Date().toISOString().slice(0, 10));
     setIsModalOpen(true);
     setIsDeleteModalOpen(false);
+    loadCards();
   }
 
   function openEditModal(tx) {
@@ -91,8 +136,12 @@ export default function Transactions() {
     setCategory(tx.category);
     setType(tx.type);
     setPaymentMethod(tx.payment_method || "debit_pix");
+    setCreditCardId(tx.credit_card_id || "");
+    setCardError("");
+    setDate(tx.created_at ? tx.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10));
     setIsModalOpen(true);
     setIsDeleteModalOpen(false);
+    loadCards();
   }
 
   function showToast(message, type = "success") {
@@ -120,18 +169,39 @@ export default function Transactions() {
 
   async function handleSave(e) {
     e.preventDefault();
+
+    if (paymentMethod === "credit_card" && !creditCardId) {
+      setCardError("Selecione o cartão de crédito utilizado.");
+      return;
+    }
+    setCardError("");
+
     const { data: sessionData } = await supabase.auth.getSession();
     const user = sessionData.session.user;
+    const resolvedCardId = paymentMethod === "credit_card" && creditCardId ? creditCardId : null;
+    const txDate = date ? new Date(date + "T12:00:00").toISOString() : new Date().toISOString();
 
     if (editingTx) {
-      await supabase.from("transactions").update({ title, amount, type, category, payment_method: paymentMethod }).eq("id", editingTx.id);
+      await supabase.from("transactions").update({ title, amount, type, category, payment_method: paymentMethod, credit_card_id: resolvedCardId, created_at: txDate }).eq("id", editingTx.id);
       showToast("Tudo certo! Transação atualizada.");
     } else {
-      await supabase.from("transactions").insert([{ title, amount, type, category, payment_method: paymentMethod, user_id: user.id }]);
+      const { error } = await supabase.from("transactions").insert([{ title, amount, type, category, payment_method: paymentMethod, credit_card_id: resolvedCardId, user_id: user.id, created_at: txDate }]);
+      if (!error && paymentMethod === "credit_card" && type === "expense") {
+        await supabase.from("credit_card_transactions").insert([{
+          title,
+          amount,
+          category,
+          merchant: "",
+          created_at: txDate,
+          user_id: user.id,
+          credit_card_id: resolvedCardId,
+        }]);
+      }
       showToast(`Pronto! ${type === "income" ? "Receita" : "Despesa"} registrada com sucesso.`);
     }
 
     setIsModalOpen(false);
+    window.dispatchEvent(new Event("transactions-updated"));
     loadData();
   }
 
@@ -141,34 +211,115 @@ export default function Transactions() {
     setIsModalOpen(false);
   }
 
+  function openBulkEdit(tx) {
+    setBulkSourceTitle(tx.title);
+    setBulkNewTitle(tx.title);
+    setBulkNewCategory(tx.category || "");
+    setIsBulkModalOpen(true);
+  }
+
+  async function handleBulkSave() {
+    if (!bulkNewTitle.trim()) return;
+    setBulkSaving(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user = sessionData.session.user;
+
+    await supabase
+      .from("transactions")
+      .update({ title: bulkNewTitle.trim(), category: bulkNewCategory.trim() })
+      .eq("user_id", user.id)
+      .eq("title", bulkSourceTitle);
+
+    setBulkSaving(false);
+    setIsBulkModalOpen(false);
+    window.dispatchEvent(new Event("transactions-updated"));
+    loadData();
+    showToast(`Pronto! Todas as transações "${bulkSourceTitle}" foram atualizadas.`);
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredTransactions.map(t => t.id)));
+    }
+  }
+
+  function openSelectionEdit() {
+    setSelCategory("");
+    setSelType("");
+    setSelPayment("");
+    setSelCreditCardId("");
+    setApplyCategory(false);
+    setApplyType(false);
+    setApplyPayment(false);
+    setIsSelectionEditOpen(true);
+  }
+
+  async function handleSelectionEdit() {
+    const updates = {};
+    if (applyCategory) updates.category = selCategory.trim();
+    if (applyType && selType) updates.type = selType;
+    if (applyPayment && selPayment) {
+      updates.payment_method = selPayment;
+      updates.credit_card_id = selPayment === "credit_card" && selCreditCardId ? selCreditCardId : null;
+    }
+    if (Object.keys(updates).length === 0) return;
+    setSelSaving(true);
+    const ids = [...selectedIds];
+    await supabase.from("transactions").update(updates).in("id", ids);
+    setSelSaving(false);
+    setIsSelectionEditOpen(false);
+    setSelectedIds(new Set());
+    window.dispatchEvent(new Event("transactions-updated"));
+    loadData();
+    showToast(`${ids.length} transaç${ids.length !== 1 ? "ões" : "ão"} atualizada${ids.length !== 1 ? "s" : ""}.`);
+  }
+
+  async function handleSelectionDelete() {
+    const ids = [...selectedIds];
+    await supabase.from("transactions").delete().in("id", ids);
+    setSelectedIds(new Set());
+    window.dispatchEvent(new Event("transactions-updated"));
+    loadData();
+    showToast(`${ids.length} transaç${ids.length !== 1 ? "ões" : "ão"} removida${ids.length !== 1 ? "s" : ""}.`, "danger");
+  }
+
   async function confirmDelete() {
     if (!txToDelete) return;
     await supabase.from("transactions").delete().eq("id", txToDelete);
     setIsDeleteModalOpen(false);
     setTxToDelete(null);
+    window.dispatchEvent(new Event("transactions-updated"));
     loadData();
     showToast("Feito! A transação foi removida.", "danger");
   }
 
   const filteredTransactions = transactions.filter((t) => {
-    // Filtro de data
-    const d = new Date(t.created_at);
+    const d = getEffectiveBillingDate(t, cards);
     if (d.getMonth() !== filterMonth || d.getFullYear() !== filterYear) return false;
-    // Filtro de tipo
     if (filter !== "all" && t.type !== filter) return false;
     return true;
   });
 
   // Dados apenas do mês filtrado para o summary
   const monthTransactions = transactions.filter((t) => {
-    const d = new Date(t.created_at);
+    const d = getEffectiveBillingDate(t, cards);
     return d.getMonth() === filterMonth && d.getFullYear() === filterYear;
   });
 
-  // Meses disponíveis para filtro
+  // Meses disponíveis para filtro (usando data efetiva)
   const availableMonths = Array.from(
     new Set(transactions.map((t) => {
-      const d = new Date(t.created_at);
+      const d = getEffectiveBillingDate(t, cards);
       return `${d.getFullYear()}-${d.getMonth()}`;
     }))
   ).map((key) => {
@@ -545,6 +696,44 @@ return (
     <section className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       {/* LIST */}
       <div className="lg:col-span-2">
+        {/* Selection action bar */}
+        {selectedIds.size > 0 && (
+          <div className="mb-3 flex items-center justify-between bg-white border border-primary-200 rounded-xl px-4 py-3 gap-3 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                </svg>
+              </div>
+              <span className="text-sm font-semibold text-slate-700">
+                {selectedIds.size} <span className="font-normal text-slate-500">selecionada{selectedIds.size !== 1 ? "s" : ""}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openSelectionEdit}
+                className="px-3 py-1.5 text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors shadow-sm"
+              >
+                Editar
+              </button>
+              <button
+                onClick={handleSelectionDelete}
+                className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition-colors"
+              >
+                Excluir
+              </button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Cancelar seleção"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {filteredTransactions.length === 0 ? (
             <div className="p-10 text-center">
@@ -554,29 +743,112 @@ return (
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
+              {/* Header row with select-all */}
+              <li className="flex items-center px-3 py-2.5 sm:px-5 bg-slate-50 border-b border-slate-100">
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className={`relative flex-shrink-0 w-5 h-5 rounded-md border-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 cursor-pointer flex items-center justify-center
+                    ${selectedIds.size > 0
+                      ? "bg-primary-600 border-primary-600"
+                      : "bg-white border-slate-300 hover:border-primary-400"
+                    }`}
+                  aria-label="Selecionar todas"
+                >
+                  {selectedIds.size > 0 && selectedIds.size < filteredTransactions.length ? (
+                    /* Indeterminate dash */
+                    <span className="block w-2.5 h-0.5 bg-white rounded-full" />
+                  ) : selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0 ? (
+                    /* Checkmark */
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                    </svg>
+                  ) : null}
+                </button>
+                <span className="ml-3 text-xs font-medium text-slate-500">
+                  {selectedIds.size > 0
+                    ? <span className="text-primary-600">{selectedIds.size} de {filteredTransactions.length} selecionadas</span>
+                    : `${filteredTransactions.length} transaç${filteredTransactions.length !== 1 ? "ões" : "ão"}`}
+                </span>
+              </li>
               {filteredTransactions.map((tx) => (
-                <li key={tx.id} className="flex justify-between items-center px-5 py-4 hover:bg-slate-50 transition-colors group">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">
-                      {tx.title}
-                      {tx.merchant && <span className="text-slate-400 font-normal ml-1.5">· {tx.merchant}</span>}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-400">{tx.category}</span>
-                      <span className="text-xs text-slate-300">·</span>
-                      <span className="text-xs text-slate-400">{new Date(tx.created_at).toLocaleDateString()}</span>
-                    </div>
+                <li
+                  key={tx.id}
+                  className={`flex justify-between items-start px-3 py-3 sm:px-5 sm:py-4 transition-colors group ${selectedIds.has(tx.id) ? "bg-primary-50/50" : "hover:bg-slate-50"}`}
+                >
+                  {/* Checkbox */}
+                  <div className="flex-shrink-0 pt-0.5 mr-2 sm:mr-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(tx.id)}
+                      className={`w-5 h-5 rounded-md border-2 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 flex items-center justify-center flex-shrink-0
+                        ${selectedIds.has(tx.id)
+                          ? "bg-primary-600 border-primary-600"
+                          : "bg-white border-slate-300 hover:border-primary-400 group-hover:border-slate-400"
+                        }`}
+                      aria-label="Selecionar transação"
+                    >
+                      {selectedIds.has(tx.id) && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                    <span className={`text-sm font-semibold ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {/* Left */}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-800 truncate pr-2">{tx.title}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {tx.category && <span className="text-xs text-slate-400 truncate max-w-[100px] sm:max-w-none">{tx.category}</span>}
+                      <span className="text-xs text-slate-300 flex-shrink-0">·</span>
+                      <span className="text-xs text-slate-400 flex-shrink-0">{new Date(tx.created_at).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                    {tx.payment_method === "credit_card" && (
+                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 mt-1 rounded-full bg-violet-50 text-violet-600 border border-violet-100 font-medium">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                        <span className="truncate max-w-[120px] sm:max-w-none">
+                          {tx.credit_card_id && cards.find(c => c.id === tx.credit_card_id)
+                            ? cards.find(c => c.id === tx.credit_card_id).name
+                            : "Cartão de crédito"}
+                        </span>
+                      </span>
+                    )}
+                    {tx.payment_method === "debit_pix" && (
+                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 mt-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 font-medium">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Débito / PIX
+                      </span>
+                    )}
+                    {tx.payment_method === "meal_voucher" && (
+                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 mt-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100 font-medium">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        Vale alimentação
+                      </span>
+                    )}
+                  </div>
+                  {/* Right */}
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0 ml-3">
+                    <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-500'}`}>
                       {tx.type === 'income' ? '+' : '-'} R$ {Number(tx.amount).toFixed(2)}
                     </span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openBulkEdit(tx)} title="Editar todas com este nome" className="p-1.5 rounded-md text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors">
+                        <img src={iconMultiple} alt="" className="w-4 h-4 brightness-0 opacity-40" />
+                      </button>
                       <button onClick={() => openEditModal(tx)} className="p-1.5 rounded-md text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
                       <button onClick={() => handleDelete(tx.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                    {/* Mobile actions */}
+                    <div className="flex sm:hidden items-center gap-1">
+                      <button onClick={() => openEditModal(tx)} className="p-1.5 rounded-md text-slate-300 hover:text-primary-600 hover:bg-primary-50 transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </button>
+                      <button onClick={() => handleDelete(tx.id)} className="p-1.5 rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     </div>
                   </div>
@@ -598,7 +870,7 @@ return (
             const year = new Date().getFullYear();
             const data = months.map((m, i) => ({ month: m, income: 0, expense: 0 }));
             transactions.forEach((tx) => {
-              const d = new Date(tx.created_at);
+              const d = getEffectiveBillingDate(tx, cards);
               if (d.getFullYear() === year) {
                 const idx = d.getMonth();
                 if (tx.type === "income") data[idx].income += Number(tx.amount || 0);
@@ -733,6 +1005,16 @@ return (
               <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border border-slate-200 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition" required />
             </div>
             <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Data</label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full border border-slate-200 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                required
+              />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
               <select value={type} onChange={(e) => setType(e.target.value)} className="w-full border border-slate-200 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition">
                 <option value="income">Receita</option>
@@ -750,7 +1032,7 @@ return (
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => setPaymentMethod(opt.value)}
+                    onClick={() => { setPaymentMethod(opt.value); setCreditCardId(""); setCardError(""); }}
                     className={`px-2 py-2 rounded-lg border text-xs text-center transition ${
                       paymentMethod === opt.value
                         ? "border-primary-500 bg-primary-50 text-primary-700 font-medium"
@@ -762,6 +1044,56 @@ return (
                 ))}
               </div>
             </div>
+
+            {/* Seletor de cartão */}
+            {paymentMethod === "credit_card" && (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  Cartão <span className="text-red-500">*</span>
+                </label>
+                {loadingCards ? (
+                  <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+                    <div className="h-3.5 w-3.5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
+                    Carregando cartões...
+                  </div>
+                ) : cards.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 px-3 py-3 text-center">
+                    <p className="text-xs text-slate-400 mb-1">Nenhum cartão cadastrado</p>
+                    <a href="/settings" className="text-xs text-primary-600 font-medium hover:text-primary-700 transition">
+                      Adicionar em Configurações
+                    </a>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {cards.map((card) => (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => { setCreditCardId(card.id); setCardError(""); }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-sm transition ${
+                          creditCardId === card.id
+                            ? "border-primary-500 bg-primary-50 text-primary-700"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        <span className="flex-1 text-left font-medium">{card.name}</span>
+                        {card.last_four && <span className="text-xs text-slate-400">•••• {card.last_four}</span>}
+                        {creditCardId === card.id && (
+                          <svg className="w-4 h-4 text-primary-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {cardError && <p className="text-xs text-red-500 mt-1">{cardError}</p>}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancelar</button>
               <button type="submit" className="px-4 py-2 text-sm font-medium bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors">Salvar</button>
@@ -770,6 +1102,67 @@ return (
         </div>
       </div>
     )}
+
+    {/* BULK EDIT MODAL */}
+    {isBulkModalOpen && (() => {
+      const affected = transactions.filter(t => t.title === bulkSourceTitle);
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50 animate-fade-in" onClick={() => setIsBulkModalOpen(false)}>
+          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-soft-lg animate-scale-in border border-slate-200" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-slate-800 mb-1">Editar em massa</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              Encontradas <span className="font-semibold text-slate-700">{affected.length}</span> transação{affected.length !== 1 ? "ões" : ""} com o nome <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">"{bulkSourceTitle}"</span>. As alterações serão aplicadas a todas.
+            </p>
+
+            <div className="bg-slate-50 rounded-lg border border-slate-200 max-h-36 overflow-y-auto mb-4">
+              {affected.map(tx => (
+                <div key={tx.id} className="flex items-center justify-between px-3 py-2 border-b border-slate-100 last:border-0">
+                  <span className="text-xs text-slate-500">{new Date(tx.created_at).toLocaleDateString("pt-BR")}</span>
+                  <span className="text-xs text-slate-400">{tx.category}</span>
+                  <span className={`text-xs font-semibold ${tx.type === "income" ? "text-emerald-600" : "text-red-500"}`}>
+                    {tx.type === "income" ? "+" : "-"} R$ {Number(tx.amount).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Novo nome</label>
+                <input
+                  type="text"
+                  value={bulkNewTitle}
+                  onChange={e => setBulkNewTitle(e.target.value)}
+                  className="w-full border border-slate-200 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Nova categoria</label>
+                <input
+                  type="text"
+                  value={bulkNewCategory}
+                  onChange={e => setBulkNewCategory(e.target.value)}
+                  placeholder="Ex: Alimentação"
+                  className="w-full border border-slate-200 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <button type="button" onClick={() => setIsBulkModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancelar</button>
+              <button
+                type="button"
+                onClick={handleBulkSave}
+                disabled={bulkSaving || !bulkNewTitle.trim()}
+                className="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {bulkSaving ? "Salvando..." : `Atualizar ${affected.length} transaç${affected.length !== 1 ? "ões" : "ão"}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* DELETE CONFIRM */}
     {isDeleteModalOpen && (
@@ -783,6 +1176,128 @@ return (
           <div className="flex justify-center gap-2">
             <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancelar</button>
             <button onClick={confirmDelete} className="px-4 py-2 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors">Excluir</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* SELECTION EDIT MODAL */}
+    {isSelectionEditOpen && (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50" onClick={() => setIsSelectionEditOpen(false)}>
+        <div className="bg-white rounded-xl w-full max-w-sm p-6 shadow-lg border border-slate-200 mx-4" onClick={e => e.stopPropagation()}>
+          <h2 className="text-base font-semibold text-slate-800 mb-1">Editar selecionadas</h2>
+          <p className="text-xs text-slate-400 mb-5">
+            {selectedIds.size} transaç{selectedIds.size !== 1 ? "ões" : "ão"} selecionada{selectedIds.size !== 1 ? "s" : ""}. Marque os campos que deseja alterar.
+          </p>
+          <div className="space-y-4">
+            {/* Categoria */}
+            <div className={`rounded-xl border-2 p-3.5 transition-colors ${applyCategory ? "border-primary-200 bg-primary-50/40" : "border-slate-100 bg-slate-50/50"}`}>
+              <label className="flex items-center gap-2.5 mb-2.5 cursor-pointer" onClick={() => setApplyCategory(v => !v)}>
+                <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${applyCategory ? "bg-primary-600 border-primary-600" : "bg-white border-slate-300"}`}>
+                  {applyCategory && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                    </svg>
+                  )}
+                </span>
+                <span className={`text-sm font-semibold ${applyCategory ? "text-primary-700" : "text-slate-600"}`}>Categoria</span>
+              </label>
+              <input
+                type="text"
+                value={selCategory}
+                onChange={e => { setSelCategory(e.target.value); setApplyCategory(true); }}
+                placeholder="Ex: Alimentação"
+                disabled={!applyCategory}
+                className="w-full border border-slate-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-40 disabled:bg-slate-100"
+              />
+            </div>
+            {/* Tipo */}
+            <div className={`rounded-xl border-2 p-3.5 transition-colors ${applyType ? "border-primary-200 bg-primary-50/40" : "border-slate-100 bg-slate-50/50"}`}>
+              <label className="flex items-center gap-2.5 mb-2.5 cursor-pointer" onClick={() => setApplyType(v => !v)}>
+                <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${applyType ? "bg-primary-600 border-primary-600" : "bg-white border-slate-300"}`}>
+                  {applyType && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                    </svg>
+                  )}
+                </span>
+                <span className={`text-sm font-semibold ${applyType ? "text-primary-700" : "text-slate-600"}`}>Tipo</span>
+              </label>
+              <select
+                value={selType}
+                onChange={e => { setSelType(e.target.value); setApplyType(true); }}
+                disabled={!applyType}
+                className="w-full border border-slate-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-40 disabled:bg-slate-100"
+              >
+                <option value="">Selecionar...</option>
+                <option value="income">Receita</option>
+                <option value="expense">Despesa</option>
+              </select>
+            </div>
+            {/* Meio de pagamento */}
+            <div className={`rounded-xl border-2 p-3.5 transition-colors ${applyPayment ? "border-primary-200 bg-primary-50/40" : "border-slate-100 bg-slate-50/50"}`}>
+              <label className="flex items-center gap-2.5 mb-2.5 cursor-pointer" onClick={() => setApplyPayment(v => !v)}>
+                <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${applyPayment ? "bg-primary-600 border-primary-600" : "bg-white border-slate-300"}`}>
+                  {applyPayment && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                    </svg>
+                  )}
+                </span>
+                <span className={`text-sm font-semibold ${applyPayment ? "text-primary-700" : "text-slate-600"}`}>Meio de pagamento</span>
+              </label>
+              <select
+                value={selPayment}
+                onChange={e => { setSelPayment(e.target.value); setApplyPayment(true); setSelCreditCardId(""); }}
+                disabled={!applyPayment}
+                className="w-full border border-slate-200 bg-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-40 disabled:bg-slate-100"
+              >
+                <option value="">Selecionar...</option>
+                <option value="credit_card">Cartão de crédito</option>
+                <option value="debit_pix">Débito / PIX</option>
+                <option value="meal_voucher">Vale alimentação</option>
+              </select>
+
+              {applyPayment && selPayment === "credit_card" && (
+                <div className="mt-2 space-y-1">
+                  {cards.length === 0 ? (
+                    <p className="text-xs text-slate-400 px-1">Nenhum cartão cadastrado.</p>
+                  ) : (
+                    cards.map(card => (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => setSelCreditCardId(card.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm transition ${
+                          selCreditCardId === card.id
+                            ? "border-primary-500 bg-primary-50 text-primary-700"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                        <span className="flex-1 text-left font-medium">{card.name}</span>
+                        {card.last_four && <span className="text-xs text-slate-400">•••• {card.last_four}</span>}
+                        {selCreditCardId === card.id && (
+                          <svg className="w-4 h-4 text-primary-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-5 border-t border-slate-100 mt-5">
+            <button onClick={() => setIsSelectionEditOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">
+              Cancelar
+            </button>
+            <button
+              onClick={handleSelectionEdit}
+              disabled={selSaving || (!applyCategory && !applyType && !applyPayment)}
+              className="px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition disabled:opacity-50"
+            >
+              {selSaving ? "Salvando..." : "Aplicar"}
+            </button>
           </div>
         </div>
       </div>

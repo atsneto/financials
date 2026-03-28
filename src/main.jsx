@@ -12,6 +12,8 @@ import Investiments from "./pages/Investiments";
 import Onboarding from "./pages/Onboarding";
 import OpenFinance from "./pages/OpenFinance";
 import Settings from "./pages/Settings";
+import Goals from "./pages/Goals";
+import James from "./pages/James";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import SubscriptionGate from "./components/SubscriptionGate";
@@ -19,12 +21,14 @@ import Layout from "./components/Layout";
 import Landing from "./pages/Landing";
 import Subscribe from "./pages/Subscribe";
 import SubscribeSuccess from "./pages/SubscribeSuccess";
+import { AIProvider } from "./context/AIContext";
 
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
+    <AIProvider>
       <Routes>
         {/* ROTAS PÚBLICAS */}
         <Route path="/login" element={<Login />} />
@@ -73,12 +77,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/investiments" element={<Investiments />} />
           <Route path="/open-finance" element={<OpenFinance />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/goals" element={<Goals />} />
+          <Route path="/james" element={<James />} />
         </Route>
 
         {/* LANDING E REDIRECIONAMENTOS */}
         <Route path="/" element={<Landing />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+    </AIProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
