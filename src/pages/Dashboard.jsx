@@ -223,8 +223,8 @@ export default function Dashboard() {
     <div className="space-y-3 animate-fade-in">
 
       {/* HEADER + TIP inline (desktop) */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-3">
+        <div className="text-center sm:text-left">
           <h1 className="text-xl font-semibold text-slate-800">{greeting}, {firstName}!</h1>
           <p className="text-slate-500 text-sm mt-0.5">{subtitle}</p>
         </div>
@@ -294,7 +294,7 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Conta Corrente */}
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
               <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -302,7 +302,7 @@ export default function Dashboard() {
             </div>
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Conta Corrente</p>
           </div>
-          <p className={`text-2xl font-semibold mb-3 ${ccBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+          <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${ccBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
             R$ {ccBalance.toFixed(2)}
           </p>
           <div className="space-y-1">
@@ -319,7 +319,7 @@ export default function Dashboard() {
 
         {/* Cartão de Crédito */}
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
               <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -327,7 +327,7 @@ export default function Dashboard() {
             </div>
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Cartão de Crédito</p>
           </div>
-          <p className={`text-2xl font-semibold mb-3 ${creditCardBill > 0 ? "text-red-500" : "text-slate-400"}`}>
+          <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${creditCardBill > 0 ? "text-red-500" : "text-slate-400"}`}>
             R$ {creditCardBill.toFixed(2)}
           </p>
           <div className="space-y-1">
@@ -348,7 +348,7 @@ export default function Dashboard() {
 
         {/* Vale Alimentação */}
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
               <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -357,10 +357,10 @@ export default function Dashboard() {
             <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Vale Alimentação</p>
           </div>
           {vaIncome === 0 && vaExpense === 0 ? (
-            <p className="text-sm text-slate-400 mt-2">Nenhuma movimentação com VA este mês.</p>
+            <p className="text-sm text-slate-400 mt-2 text-center sm:text-left">Nenhuma movimentação com VA este mês.</p>
           ) : (
             <>
-              <p className={`text-2xl font-semibold mb-3 ${vaBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+              <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${vaBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                 R$ {vaBalance.toFixed(2)}
               </p>
               <div className="space-y-1">
@@ -384,26 +384,26 @@ export default function Dashboard() {
         <SummaryCard label="Despesas" value={expense} type="danger" />
 
         <div className={`rounded-xl border p-3 ${healthScore.bg} ${healthScore.border}`}>
-          <p className="text-xs text-slate-500 mb-2">Saúde Financeira</p>
-          <div className="flex items-baseline gap-2 mb-2">
+          <p className="text-xs text-slate-500 mb-2 text-center sm:text-left">Saúde Financeira</p>
+          <div className="flex items-baseline justify-center sm:justify-start gap-2 mb-2">
             <p className={`text-2xl font-bold ${healthScore.text}`}>{healthScore.score}</p>
             <p className={`text-xs font-semibold ${healthScore.text}`}>{healthScore.label}</p>
           </div>
           <div className="w-full bg-white/60 rounded-full h-1.5">
             <div className={`h-1.5 rounded-full transition-all duration-700 ${healthScore.bar}`} style={{ width: `${healthScore.score}%` }} />
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">
+          <p className="text-xs text-slate-500 mt-1.5 text-center sm:text-left">
             Poupança: <span className={`font-semibold ${healthScore.text}`}>{income > 0 ? `${savingsRate.toFixed(1)}%` : "—"}</span>
           </p>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-3">
-          <p className="text-xs text-slate-500 mb-2">Projeção fim do mês</p>
-          <p className={`text-2xl font-bold mb-1 ${projectedBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+          <p className="text-xs text-slate-500 mb-2 text-center sm:text-left">Projeção fim do mês</p>
+          <p className={`text-2xl font-bold mb-1 text-center sm:text-left ${projectedBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
             R$ {projectedBalance.toFixed(2)}
           </p>
-          <p className="text-xs text-slate-400">R$ {dailyAvg.toFixed(2)}/dia</p>
-          {income === 0 && <p className="text-xs text-amber-500 mt-1">Registre receitas</p>}
+          <p className="text-xs text-slate-400 text-center sm:text-left">R$ {dailyAvg.toFixed(2)}/dia</p>
+          {income === 0 && <p className="text-xs text-amber-500 mt-1 text-center sm:text-left">Registre receitas</p>}
         </div>
       </section>
 
@@ -412,8 +412,8 @@ export default function Dashboard() {
 
         {/* Evolução dos gastos - col-span-3 */}
         <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-0.5">Evolução dos gastos</h3>
-          <p className="text-xs text-slate-400 mb-3">Acumulado diário de despesas em {monthName}</p>
+          <h3 className="text-sm font-semibold text-slate-700 mb-0.5 text-center sm:text-left">Evolução dos gastos</h3>
+          <p className="text-xs text-slate-400 mb-3 text-center sm:text-left">Acumulado diário de despesas em {monthName}</p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -438,8 +438,8 @@ export default function Dashboard() {
 
           {/* Comparação mensal */}
           <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-0.5">Comparação mensal</h3>
-            <p className="text-xs text-slate-400 mb-3">Mês anterior vs atual</p>
+            <h3 className="text-sm font-semibold text-slate-700 mb-0.5 text-center sm:text-left">Comparação mensal</h3>
+            <p className="text-xs text-slate-400 mb-3 text-center sm:text-left">Mês anterior vs atual</p>
             <div className="h-36">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={comparisonData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -453,7 +453,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
             {prevExpense > 0 && expense > 0 && (
-              <p className={`text-xs mt-2 font-medium ${expense > prevExpense ? "text-red-500" : "text-emerald-600"}`}>
+              <p className={`text-xs mt-2 font-medium text-center sm:text-left ${expense > prevExpense ? "text-red-500" : "text-emerald-600"}`}>
                 {expense > prevExpense
                   ? `↑ Gastos ${(((expense / prevExpense) - 1) * 100).toFixed(0)}% maiores que o mês passado`
                   : `↓ Gastos ${(((prevExpense / expense) - 1) * 100).toFixed(0)}% menores que o mês passado`}
@@ -463,8 +463,8 @@ export default function Dashboard() {
 
           {/* Top categorias */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 flex-1">
-            <h3 className="text-sm font-semibold text-slate-700 mb-0.5">Categorias com maior gasto</h3>
-            <p className="text-xs text-slate-400 mb-3">Top categorias do mês atual</p>
+            <h3 className="text-sm font-semibold text-slate-700 mb-0.5 text-center sm:text-left">Categorias com maior gasto</h3>
+            <p className="text-xs text-slate-400 mb-3 text-center sm:text-left">Top categorias do mês atual</p>
             {topCategories.length > 0 ? (
               <div className="space-y-2.5">
                 {topCategories.map(([cat, val], i) => (
@@ -486,7 +486,7 @@ export default function Dashboard() {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">Sem despesas categorizadas este mês.</p>
+              <p className="text-sm text-slate-400 text-center sm:text-left">Sem despesas categorizadas este mês.</p>
             )}
           </div>
         </div>
@@ -511,11 +511,11 @@ function SummaryCard({ label, value, type = "default" }) {
   const displayStyle = isNeg ? styles.danger : s;
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 hover:border-slate-300 transition-colors">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
         <span className={`w-2 h-2 rounded-full ${displayStyle.dot}`} />
         <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</p>
       </div>
-      <p className={`text-2xl font-semibold ${displayStyle.text}`}>
+      <p className={`text-2xl font-semibold text-center sm:text-left ${displayStyle.text}`}>
         R$ {value.toFixed(2)}
       </p>
     </div>
