@@ -2,540 +2,658 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend,
+  ResponsiveContainer, AreaChart, Area,
+  XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
+import iconWallet   from "../icons/wallet-svgrepo-com.svg";
+import iconChart    from "../icons/chart-pie-svgrepo-com.svg";
+import iconChartBar from "../icons/chart-bar-vertical-svgrepo-com.svg";
+import iconCard     from "../icons/card-credit-money-currency-finance-payment-2-svgrepo-com.svg";
+import iconBag      from "../icons/bag-dollar-money-currency-finance-payment-svgrepo-com.svg";
 
-export default function Investiments() {
-  const [investments, setInvestments] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingInv, setEditingInv] = useState(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [invToDelete, setInvToDelete] = useState(null);
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState("stocks");
-  const [date, setDate] = useState("");
-  const [expectedReturn, setExpectedReturn] = useState("");
-  const [simAmount, setSimAmount] = useState("1000");
-  const [simRate, setSimRate] = useState("10");
-  const [simYears, setSimYears] = useState("1");
-  const [simMonthly, setSimMonthly] = useState("0");
-  const [cdiFee, setCdiFee] = useState("13.25");
+// ─── Config ───────────────────────────────────────────────────────────────────
 
-  const navigate = useNavigate();
+const TYPES = [
+  { id: "stocks",     label: "Ações",       color: "bg-blue-500",    light: "bg-blue-50",    text: "text-blue-700",    border: "border-blue-200",   icon: iconChartBar },
+  { id: "etfs",       label: "ETFs",        color: "bg-violet-500",  light: "bg-violet-50",  text: "text-violet-700",  border: "border-violet-200", icon: iconChart    },
+  { id: "bonds",      label: "Renda Fixa",  color: "bg-emerald-500", light: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200",icon: iconCard     },
+  { id: "reits",      label: "FIIs",        color: "bg-amber-500",   light: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200",  icon: iconBag      },
+  { id: "crypto",     label: "Cripto",      color: "bg-orange-500",  light: "bg-orange-50",  text: "text-orange-700",  border: "border-orange-200", icon: iconChartBar },
+  { id: "commodities",label: "Commodities", color: "bg-yellow-500",  light: "bg-yellow-50",  text: "text-yellow-700",  border: "border-yellow-200", icon: iconBag      },
+  { id: "cash",       label: "Reserva",     color: "bg-slate-400",   light: "bg-slate-50",   text: "text-slate-600",   border: "border-slate-200",  icon: iconWallet   },
+  { id: "other",      label: "Outros",      color: "bg-slate-400",   light: "bg-slate-50",   text: "text-slate-600",   border: "border-slate-200",  icon: iconWallet   },
+];
 
-  useEffect(() => {
-    loadData();
-  }, []);
+const getType = (id) => TYPES.find((t) => t.id === id) || TYPES[TYPES.length - 1];
 
-  useEffect(() => {
-    function handleEsc(e) {
-      if (e.key === "Escape") {
-        setIsModalOpen(false);
-        setIsDeleteModalOpen(false);
-      }
-    }
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, []);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  async function loadData() {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session) return navigate("/login");
-    const user = sessionData.session.user;
+const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v || 0));
+const parseNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-    const { data } = await supabase
-      .from("investments")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+function calcEstimated(amt, rate, daysHeld) {
+  const mRate   = Math.pow(1 + rate / 100, 1 / 12) - 1;
+  const months  = daysHeld / 30.44;
+  return amt * Math.pow(1 + mRate, months);
+}
 
-    setInvestments(data || []);
-  }
+// ─── TypeIcon ─────────────────────────────────────────────────────────────────
 
-  function openAddModal() {
-    setEditingInv(null);
-    setName("");
-    setAmount("");
-    setType("stocks");
-    setDate(new Date().toISOString().slice(0, 10));
-    setExpectedReturn("");
-    setIsModalOpen(true);
-    setIsDeleteModalOpen(false);
-  }
+function TypeIcon({ icon, className = "w-4 h-4" }) {
+  return <img src={icon} alt="" className={className} style={{ filter: "brightness(0) saturate(100%)" }} />;
+}
 
-  function openEditModal(inv) {
-    setEditingInv(inv);
-    setName(inv.name);
-    setAmount(inv.amount);
-    setType(inv.type);
-    setDate(inv.created_at ? inv.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10));
-    setExpectedReturn(inv.expected_return || "");
-    setIsModalOpen(true);
-    setIsDeleteModalOpen(false);
-  }
+// ─── InvestModal ──────────────────────────────────────────────────────────────
+
+function InvestModal({ inv, onClose, onSaved }) {
+  const isEditing = !!inv?.id;
+  const [name, setName]             = useState(inv?.name || "");
+  const [amount, setAmount]         = useState(inv?.amount?.toString() || "");
+  const [type, setType]             = useState(inv?.type || "stocks");
+  const [date, setDate]             = useState(inv?.created_at ? inv.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const [expectedReturn, setExpectedReturn] = useState(inv?.expected_return?.toString() || "");
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState("");
 
   async function handleSave(e) {
     e.preventDefault();
-    const { data: sessionData } = await supabase.auth.getSession();
-    const user = sessionData.session.user;
+    setError("");
+    if (!name.trim())             return setError("Informe o nome do investimento");
+    if (!parseNum(amount) > 0)    return setError("Valor inválido");
 
-    if (editingInv) {
-      await supabase
-        .from("investments")
-        .update({ name, amount, type, created_at: date + "T00:00:00", expected_return: expectedReturn })
-        .eq("id", editingInv.id)
-        .eq("user_id", user.id);
+    setSaving(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setSaving(false); return; }
+
+    const payload = {
+      name:            name.trim(),
+      amount:          parseNum(amount),
+      type,
+      created_at:      date + "T00:00:00",
+      expected_return: parseNum(expectedReturn),
+      user_id:         session.user.id,
+    };
+
+    let err;
+    if (isEditing) {
+      ({ error: err } = await supabase.from("investments").update(payload).eq("id", inv.id).eq("user_id", session.user.id));
     } else {
-      await supabase.from("investments").insert([
-        { name, amount, type, created_at: date + "T00:00:00", expected_return: expectedReturn, user_id: user.id },
-      ]);
+      ({ error: err } = await supabase.from("investments").insert([payload]));
     }
 
-    setIsModalOpen(false);
-    loadData();
+    setSaving(false);
+    if (err) return setError("Erro ao salvar. Tente novamente.");
+    onSaved();
+    onClose();
   }
 
-  function handleDelete(id) {
-    setInvToDelete(id);
-    setIsDeleteModalOpen(true);
-    setIsModalOpen(false);
+  const selectedType = getType(type);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-white rounded-xl w-full max-w-md shadow-lg border border-slate-200 mx-4">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+          <h2 className="text-base font-semibold text-slate-800">
+            {isEditing ? "Editar investimento" : "Novo investimento"}
+          </h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 transition">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
+          {/* Tipo */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-2">Classe do ativo</label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {TYPES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setType(t.id)}
+                  className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 text-[11px] font-medium transition ${
+                    type === t.id
+                      ? `${t.border} ${t.light} ${t.text}`
+                      : "border-slate-100 text-slate-400 hover:border-slate-200"
+                  }`}
+                >
+                  <TypeIcon icon={t.icon} className="w-4 h-4" />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Nome do investimento</label>
+            <input
+              type="text" placeholder="Ex: PETR4, Tesouro IPCA+, BTC"
+              value={name} onChange={(e) => setName(e.target.value)} required
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Valor investido (R$)</label>
+              <input
+                type="number" min="0.01" step="0.01" placeholder="0,00"
+                value={amount} onChange={(e) => setAmount(e.target.value)} required
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Retorno esperado (% a.a.)</label>
+              <input
+                type="number" step="0.01" placeholder="Ex: 12"
+                value={expectedReturn} onChange={(e) => setExpectedReturn(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Data de entrada</label>
+            <input
+              type="date" value={date} onChange={(e) => setDate(e.target.value)} required
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          {error && (
+            <p className="text-xs text-red-600 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01" />
+              </svg>
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+              Cancelar
+            </button>
+            <button
+              type="submit" disabled={saving}
+              className={`flex-1 py-2.5 text-sm text-white font-medium rounded-lg transition disabled:opacity-60 ${selectedType.color.replace("bg-", "bg-").split(" ")[0]} hover:opacity-90`}
+              style={{ backgroundColor: "" }}
+            >
+              {saving ? "Salvando..." : isEditing ? "Salvar" : "Adicionar"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function Investiments() {
+  const [investments, setInvestments] = useState([]);
+  const [modal, setModal]             = useState(null); // null | {} | { inv }
+  const [deleteId, setDeleteId]       = useState(null);
+  const [cdiFee, setCdiFee]           = useState("13.25");
+  const [simAmount, setSimAmount]     = useState("1000");
+  const [simRate, setSimRate]         = useState("10");
+  const [simYears, setSimYears]       = useState("5");
+  const [simMonthly, setSimMonthly]   = useState("200");
+  const navigate = useNavigate();
+
+  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    const fn = (e) => { if (e.key === "Escape") { setModal(null); setDeleteId(null); } };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, []);
+
+  async function loadData() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return navigate("/login");
+    const { data } = await supabase.from("investments").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false });
+    setInvestments(data || []);
   }
 
   async function confirmDelete() {
-    if (!invToDelete) return;
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData?.session) return;
-    await supabase
-      .from("investments")
-      .delete()
-      .eq("id", invToDelete)
-      .eq("user_id", sessionData.session.user.id);
-    setIsDeleteModalOpen(false);
-    setInvToDelete(null);
+    if (!deleteId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from("investments").delete().eq("id", deleteId).eq("user_id", session.user.id);
+    setDeleteId(null);
     loadData();
   }
 
-  const parseNum = (val) => {
-    const n = Number(val);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  const cdiRate = parseNum(cdiFee);
-
-  const totalInvested = investments.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
-  const averageReturn = investments.length > 0
-    ? investments.reduce((sum, inv) => sum + Number(inv.expected_return || 0), 0) / investments.length
+  // ── Calculations ────────────────────────────────────────────────────────────
+  const cdiRate      = parseNum(cdiFee);
+  const totalInvested = investments.reduce((s, i) => s + parseNum(i.amount), 0);
+  const avgReturn    = investments.length > 0
+    ? investments.reduce((s, i) => s + parseNum(i.expected_return), 0) / investments.length
     : 0;
-  const moneyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-  const formatMoney = (val) => moneyFormatter.format(Number(val || 0));
-  const typeLabel = (t) => {
-    switch (t) {
-      case "stocks": return "Ações";
-      case "bonds": return "Títulos";
-      case "crypto": return "Cripto";
-      case "reits": return "FIIs";
-      case "etfs": return "ETFs";
-      case "commodities": return "Commodities";
-      case "cash": return "Caixa/Reserva";
-      default: return "Outros";
-    }
-  };
 
-  // =====================
-  // Simulador geral
-  // =====================
-  const safeAmount = parseNum(simAmount);
-  const safeRate = parseNum(simRate);
-  const safeYears = Math.max(parseNum(simYears), 0);
-  const safeMonthly = parseNum(simMonthly);
-  const monthlyRate = Math.pow(1 + safeRate / 100, 1 / 12) - 1;
-  const totalMonths = Math.round(safeYears * 12);
-  const futureBase = safeAmount * Math.pow(1 + monthlyRate, totalMonths);
-  const futureContrib = monthlyRate === 0
-    ? safeMonthly * totalMonths
-    : safeMonthly * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate);
-  const simulationValue = futureBase + futureContrib;
-  const monthlyContrib = safeMonthly * totalMonths;
-  const totalYield = simulationValue - (safeAmount + monthlyContrib);
-
-  // =====================
-  // ANÁLISE DETALHADA POR INVESTIMENTO
-  // =====================
-  const projectionYears = [1, 2, 3, 5, 10];
-  const investmentAnalysis = investments.map((inv) => {
-    const amt = parseNum(inv.amount);
-    const rate = parseNum(inv.expected_return);
-    const mRate = Math.pow(1 + rate / 100, 1 / 12) - 1;
-    const projections = projectionYears.map((y) => {
-      const months = y * 12;
-      const fv = amt * Math.pow(1 + mRate, months);
+  const analyzed = investments.map((inv) => {
+    const amt    = parseNum(inv.amount);
+    const rate   = parseNum(inv.expected_return);
+    const days   = Math.max(1, Math.floor((Date.now() - new Date(inv.created_at).getTime()) / 86400000));
+    const curr   = calcEstimated(amt, rate, days);
+    const yield_ = curr - amt;
+    const pct    = amt > 0 ? ((curr - amt) / amt) * 100 : 0;
+    const cdiDiff = rate - cdiRate;
+    const cdiPct  = cdiRate > 0 ? (rate / cdiRate) * 100 : 0;
+    const projections = [1, 2, 3, 5, 10].map((y) => {
+      const mRate = Math.pow(1 + rate / 100, 1 / 12) - 1;
+      const fv = amt * Math.pow(1 + mRate, y * 12);
       return { year: y, value: fv, yield: fv - amt };
     });
-    const daysHeld = Math.max(1, Math.floor((Date.now() - new Date(inv.created_at).getTime()) / (1000 * 60 * 60 * 24)));
-    const monthsHeld = daysHeld / 30.44;
-    const estimatedCurrent = amt * Math.pow(1 + mRate, monthsHeld);
-    return { ...inv, amt, rate, projections, daysHeld, monthsHeld, estimatedCurrent, estimatedYield: estimatedCurrent - amt };
+    return { ...inv, amt, rate, days, curr, yield_, pct, cdiDiff, cdiPct, projections };
   });
 
-  // Gráfico de projeção da carteira total
+  const totalCurr    = analyzed.reduce((s, i) => s + i.curr, 0);
+  const totalYieldNow = totalCurr - totalInvested;
+  const totalPct     = totalInvested > 0 ? (totalYieldNow / totalInvested) * 100 : 0;
+
+  // Distribution by type
+  const distrib = TYPES.map((t) => {
+    const total = analyzed.filter((i) => i.type === t.id).reduce((s, i) => s + i.curr, 0);
+    const pct   = totalCurr > 0 ? (total / totalCurr) * 100 : 0;
+    return { ...t, total, pct };
+  }).filter((t) => t.total > 0);
+
+  // Projection chart data
   const portfolioChartData = [];
   for (let m = 0; m <= 120; m++) {
-    const label = m % 12 === 0 ? `${m / 12}A` : '';
+    if (m % 3 !== 0 && m > 12) continue;
     let totalValue = 0;
-    let totalInvestedBase = 0;
     investments.forEach((inv) => {
-      const amt = parseNum(inv.amount);
-      const rate = parseNum(inv.expected_return);
+      const amt   = parseNum(inv.amount);
+      const rate  = parseNum(inv.expected_return);
       const mRate = Math.pow(1 + rate / 100, 1 / 12) - 1;
       totalValue += amt * Math.pow(1 + mRate, m);
-      totalInvestedBase += amt;
     });
-    if (m % 3 === 0 || m <= 12) {
-      portfolioChartData.push({
-        month: m,
-        label: m === 0 ? 'Hoje' : m < 12 ? `${m}m` : `${(m / 12).toFixed(m % 12 === 0 ? 0 : 1)}A`,
-        projetado: Number(totalValue.toFixed(2)),
-        investido: Number(totalInvestedBase.toFixed(2)),
-      });
-    }
+    portfolioChartData.push({
+      label:    m === 0 ? "Hoje" : m < 12 ? `${m}m` : `${(m / 12).toFixed(m % 12 === 0 ? 0 : 1)}A`,
+      projetado: Number(totalValue.toFixed(2)),
+      investido: Number(totalInvested.toFixed(2)),
+    });
   }
 
-  const SummaryCard = ({ title, value, isText = false }) => (
-    <div className="bg-white rounded-xl border border-slate-200 p-4">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="text-lg font-semibold text-slate-800 mt-1">
-        {typeof value === "number" && !isText ? formatMoney(value) : value}
-      </p>
-    </div>
-  );
+  // Simulator
+  const sAmt     = parseNum(simAmount);
+  const sRate    = parseNum(simRate);
+  const sYears   = Math.max(parseNum(simYears), 0);
+  const sMonthly = parseNum(simMonthly);
+  const mRate    = Math.pow(1 + sRate / 100, 1 / 12) - 1;
+  const months   = Math.round(sYears * 12);
+  const futureBase   = sAmt * Math.pow(1 + mRate, months);
+  const futureContrib = mRate === 0 ? sMonthly * months : sMonthly * ((Math.pow(1 + mRate, months) - 1) / mRate);
+  const simTotal     = futureBase + futureContrib;
+  const simInvested  = sAmt + sMonthly * months;
+  const simYield_    = simTotal - simInvested;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-800">Investimentos</h1>
-        <p className="text-sm text-slate-500">Controle, análise e projeção dos seus investimentos</p>
+    <div className="space-y-6">
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-800">Investimentos</h1>
+          <p className="text-sm text-slate-500">Controle e projeção da sua carteira</p>
+        </div>
+        <button
+          onClick={() => setModal({})}
+          className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-2 self-start sm:self-auto"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Novo investimento
+        </button>
       </div>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard title="Total Investido" value={totalInvested} />
-        <SummaryCard title="Retorno Médio" value={`${averageReturn.toFixed(2)}%`} isText />
-        <SummaryCard title="Investimentos" value={investments.length} isText />
-        <SummaryCard title="Diversificação" value={`${new Set(investments.map((inv) => inv.type)).size} tipos`} isText />
-      </section>
+      {/* ── Summary cards ───────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-400 mb-1">Total investido</p>
+          <p className="text-lg font-bold text-slate-800 truncate">{fmt(totalInvested)}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-400 mb-1">Valor estimado</p>
+          <p className="text-lg font-bold text-slate-800 truncate">{fmt(totalCurr)}</p>
+          {totalYieldNow !== 0 && (
+            <p className={`text-xs mt-0.5 font-medium ${totalYieldNow >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+              {totalYieldNow >= 0 ? "+" : ""}{fmt(totalYieldNow)}
+            </p>
+          )}
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-400 mb-1">Rentabilidade</p>
+          <p className={`text-lg font-bold ${totalPct >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+            {totalPct >= 0 ? "+" : ""}{totalPct.toFixed(1)}%
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">desde início</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-400 mb-1">Retorno médio</p>
+          <p className="text-lg font-bold text-slate-800">{avgReturn.toFixed(1)}% <span className="text-xs font-normal text-slate-400">a.a.</span></p>
+          <p className="text-xs text-slate-400 mt-0.5">{investments.length} ativo{investments.length !== 1 ? "s" : ""}</p>
+        </div>
+      </div>
 
-      {/* CDI BENCHMARK */}
-      <section className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-700">Comparação com CDI</h3>
-            <p className="text-xs text-slate-400">Veja quais investimentos estão acima ou abaixo do CDI</p>
+      {/* ── Portfolio distribution + chart ──────────────────────────────────── */}
+      {investments.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Distribution */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">Distribuição</h3>
+            {/* Segmented bar */}
+            <div className="flex h-3 rounded-full overflow-hidden gap-px mb-4">
+              {distrib.map((t) => (
+                <div key={t.id} className={`${t.color} transition-all`} style={{ width: `${t.pct}%` }} title={`${t.label}: ${t.pct.toFixed(1)}%`} />
+              ))}
+            </div>
+            <div className="space-y-2.5">
+              {distrib.map((t) => (
+                <div key={t.id} className="flex items-center gap-2.5">
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${t.color}`} />
+                  <span className="text-xs text-slate-600 flex-1 truncate">{t.label}</span>
+                  <span className="text-xs font-semibold text-slate-700">{fmt(t.total)}</span>
+                  <span className="text-xs text-slate-400 w-8 text-right">{t.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-500 flex-shrink-0">CDI (% a.a.):</label>
-            <input
-              type="number"
-              value={cdiFee}
-              onChange={e => setCdiFee(e.target.value)}
-              className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              step="0.01"
-            />
+
+          {/* Projection chart */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 lg:col-span-2">
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold text-slate-700">Projeção da carteira</h3>
+              <p className="text-xs text-slate-400">Simulação baseada nos retornos esperados de cada ativo</p>
+            </div>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={portfolioChartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gProj" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#10b981" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gInv" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.12} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${v}`} width={44} />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      return (
+                        <div className="bg-white border border-slate-200 rounded-lg shadow px-3 py-2 text-xs">
+                          <p className="font-medium text-slate-600 mb-1">{payload[0]?.payload?.label}</p>
+                          {payload.map((e, i) => <p key={i} style={{ color: e.color }}>{e.name}: {fmt(e.value)}</p>)}
+                        </div>
+                      );
+                    }}
+                  />
+                  <Area type="monotone" dataKey="investido" name="Investido" stroke="#6366f1" strokeWidth={1.5} fill="url(#gInv)" dot={false} />
+                  <Area type="monotone" dataKey="projetado" name="Projetado" stroke="#10b981" strokeWidth={2} fill="url(#gProj)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
-        {investments.length > 0 ? (
-          <div className="space-y-2">
-            {investments.map(inv => {
-              const rate = parseNum(inv.expected_return);
-              const diff = rate - cdiRate;
-              const pct = cdiRate > 0 ? (rate / cdiRate) * 100 : 0;
-              const isAbove = diff >= 0;
+      )}
+
+      {/* ── Investment list ──────────────────────────────────────────────────── */}
+      {investments.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <img src={iconChartBar} alt="" className="w-7 h-7 opacity-30" />
+          </div>
+          <h3 className="text-base font-semibold text-slate-700 mb-1">Nenhum investimento cadastrado</h3>
+          <p className="text-sm text-slate-400 max-w-xs mx-auto mb-5">
+            Adicione seus ativos para visualizar a carteira, projeções e comparações.
+          </p>
+          <button onClick={() => setModal({})} className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition">
+            Adicionar primeiro ativo
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-700">Carteira</h3>
+            <span className="text-xs text-slate-400">{investments.length} ativo{investments.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {analyzed.map((inv) => {
+              const t = getType(inv.type);
+              const aboveCdi = inv.cdiDiff >= 0;
               return (
-                <div key={inv.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{inv.name}</p>
-                    <p className="text-xs text-slate-400">{typeLabel(inv.type)} · {rate}% a.a.</p>
+                <div key={inv.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors group">
+                  {/* Type icon */}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${t.light}`}>
+                    <TypeIcon icon={t.icon} className="w-4 h-4" />
                   </div>
-                  <div className="text-right flex-shrink-0 ml-4">
-                    <p className={`text-sm font-semibold ${isAbove ? "text-emerald-600" : "text-red-500"}`}>
-                      {isAbove ? "+" : ""}{diff.toFixed(2)}% vs CDI
+
+                  {/* Name + type */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{inv.name}</p>
+                      <span className={`text-[11px] px-1.5 py-0.5 rounded-md font-medium ${t.light} ${t.text}`}>{t.label}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {inv.days} dias · {inv.rate > 0 ? `${inv.rate}% a.a.` : "sem taxa"}
                     </p>
-                    <p className="text-xs text-slate-400">{pct.toFixed(0)}% do CDI</p>
                   </div>
-                  <div className={`ml-3 flex-shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                    pct >= 120 ? "bg-emerald-100 text-emerald-700"
-                    : pct >= 100 ? "bg-blue-100 text-blue-700"
-                    : pct >= 80 ? "bg-amber-100 text-amber-700"
-                    : "bg-red-100 text-red-600"
-                  }`}>
-                    {pct >= 120 ? "Ótimo" : pct >= 100 ? "Bom" : pct >= 80 ? "Regular" : "Abaixo"}
+
+                  {/* Values */}
+                  <div className="hidden sm:flex items-center gap-6 text-right">
+                    <div>
+                      <p className="text-xs text-slate-400">Investido</p>
+                      <p className="text-sm font-semibold text-slate-700">{fmt(inv.amt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Atual est.</p>
+                      <p className="text-sm font-semibold text-slate-800">{fmt(inv.curr)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Rendimento</p>
+                      <p className={`text-sm font-semibold ${inv.yield_ >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        {inv.yield_ >= 0 ? "+" : ""}{fmt(inv.yield_)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* CDI badge */}
+                  <div className="hidden md:block flex-shrink-0">
+                    <span className={`text-[11px] px-2 py-1 rounded-full font-medium ${
+                      inv.cdiPct >= 120 ? "bg-emerald-100 text-emerald-700" :
+                      inv.cdiPct >= 100 ? "bg-blue-100 text-blue-700" :
+                      inv.cdiPct >= 80  ? "bg-amber-100 text-amber-700" :
+                      "bg-red-100 text-red-600"
+                    }`}>
+                      {inv.cdiPct >= 120 ? "Ótimo" : inv.cdiPct >= 100 ? "✓ CDI" : inv.cdiPct >= 80 ? "Regular" : "Abaixo CDI"}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <button
+                      onClick={() => setModal({ inv })}
+                      className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                      title="Editar"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(inv.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                      title="Excluir"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : (
-          <p className="text-sm text-slate-400">Cadastre investimentos para comparar com o CDI.</p>
-        )}
-        {investments.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-slate-100">
-            {(() => {
-              const aboveCdi = investments.filter(inv => parseNum(inv.expected_return) >= cdiRate).length;
-              const belowCdi = investments.length - aboveCdi;
-              const suggestion =
-                belowCdi === investments.length ? "Todos os seus investimentos estão abaixo do CDI. Considere renda fixa pós-fixada."
-                : belowCdi > 0 ? `${belowCdi} investimento(s) abaixo do CDI. Avalie realocar para ativos mais rentáveis.`
-                : "Todos os seus investimentos superam o CDI. Ótima carteira!";
-              return <p className="text-xs text-slate-500">{suggestion}</p>;
-            })()}
-          </div>
-        )}
-      </section>
+        </div>
+      )}
 
-      <div>
-        <button onClick={openAddModal} className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-          + Novo Investimento
-        </button>
-      </div>
-
-      {/* GRÁFICO DE PROJEÇÃO DA CARTEIRA */}
+      {/* ── CDI Benchmark ───────────────────────────────────────────────────── */}
       {investments.length > 0 && (
-        <section className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-1">Projeção da carteira (10 anos)</h3>
-          <p className="text-xs text-slate-400 mb-4">Simulação baseada nos retornos esperados de cada investimento</p>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={portfolioChartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorProj" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorInv" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`} width={50} />
-                <Tooltip content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  return (
-                    <div className="bg-white border border-slate-200 rounded-lg shadow-sm px-3 py-2 text-xs">
-                      <p className="font-medium text-slate-700 mb-1">{payload[0]?.payload?.label}</p>
-                      {payload.map((e, i) => (
-                        <p key={i} style={{ color: e.color }}>{e.name}: {formatMoney(e.value)}</p>
-                      ))}
-                    </div>
-                  );
-                }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="investido" name="Investido" stroke="#6366f1" strokeWidth={2} fill="url(#colorInv)" dot={false} />
-                <Area type="monotone" dataKey="projetado" name="Projetado" stroke="#10b981" strokeWidth={2} fill="url(#colorProj)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-700">Comparação com CDI</h3>
+              <p className="text-xs text-slate-400">Veja como cada ativo se compara ao benchmark</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-slate-500 flex-shrink-0">CDI (% a.a.):</label>
+              <input
+                type="number" value={cdiFee} onChange={(e) => setCdiFee(e.target.value)}
+                className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                step="0.01"
+              />
+            </div>
           </div>
-        </section>
-      )}
 
-      {/* ANÁLISE DETALHADA DE CADA INVESTIMENTO */}
-      {investmentAnalysis.length > 0 && (
-        <section className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Análise detalhada</h3>
-          <div className="space-y-4">
-            {investmentAnalysis.map((inv) => (
-              <div key={inv.id} className="border border-slate-100 rounded-xl p-4 hover:border-primary-200 transition-colors">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-slate-800">{inv.name}</p>
-                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600">{typeLabel(inv.type)}</span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Investido há {inv.daysHeld} dias · Taxa: {inv.rate}% a.a.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Investido</p>
-                      <p className="text-sm font-semibold text-slate-800">{formatMoney(inv.amt)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Valor estimado hoje</p>
-                      <p className="text-sm font-semibold text-emerald-600">{formatMoney(inv.estimatedCurrent)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400">Rendimento</p>
-                      <p className="text-sm font-semibold text-emerald-600">+{formatMoney(inv.estimatedYield)}</p>
-                    </div>
-                    <div className="flex items-center gap-1 ml-2">
-                      <button onClick={() => openEditModal(inv)} className="p-1.5 rounded-md text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                      </button>
-                      <button onClick={() => handleDelete(inv.id)} className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {/* Tabela de projeção */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-100">
-                        <th className="text-left py-1.5 text-slate-400 font-medium">Prazo</th>
-                        <th className="text-right py-1.5 text-slate-400 font-medium">Valor projetado</th>
-                        <th className="text-right py-1.5 text-slate-400 font-medium">Rendimento</th>
-                        <th className="text-right py-1.5 text-slate-400 font-medium">% ganho</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {inv.projections.map((p) => (
-                        <tr key={p.year} className="border-b border-slate-50">
-                          <td className="py-1.5 text-slate-600">{p.year} {p.year === 1 ? 'ano' : 'anos'}</td>
-                          <td className="py-1.5 text-right text-slate-800 font-medium">{formatMoney(p.value)}</td>
-                          <td className="py-1.5 text-right text-emerald-600 font-medium">+{formatMoney(p.yield)}</td>
-                          <td className="py-1.5 text-right text-emerald-600">{inv.amt > 0 ? `+${((p.yield / inv.amt) * 100).toFixed(1)}%` : '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* SIMULADOR */}
-      <section className="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Simular investimento</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="flex flex-col">
-            <label className="text-slate-500 mb-1 text-xs">Valor inicial (R$)</label>
-            <input type="number" value={simAmount} onChange={(e) => setSimAmount(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-slate-500 mb-1 text-xs">Aporte mensal (R$)</label>
-            <input type="number" value={simMonthly} onChange={(e) => setSimMonthly(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-slate-500 mb-1 text-xs">Retorno anual (%)</label>
-            <input type="number" value={simRate} onChange={(e) => setSimRate(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-slate-500 mb-1 text-xs">Prazo (anos)</label>
-            <input type="number" value={simYears} onChange={(e) => setSimYears(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <p className="text-xs text-slate-400">Valor projetado</p>
-            <p className="text-lg font-semibold text-slate-800">{formatMoney(simulationValue)}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <p className="text-xs text-slate-400">Total investido + aportes</p>
-            <p className="text-lg font-semibold text-slate-800">{formatMoney(safeAmount + monthlyContrib)}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-            <p className="text-xs text-emerald-500">Rendimento dos juros</p>
-            <p className="text-lg font-semibold text-emerald-700">{formatMoney(totalYield)}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* METAS FINANCEIRAS */}
-      <section className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-700">Metas de investimento</h3>
-            <p className="text-xs text-slate-400">Defina objetivos financeiros para seus investimentos</p>
-          </div>
-        </div>
-        {investments.length > 0 ? (
           <div className="space-y-3">
-            {(() => {
-              const totalNow = investmentAnalysis.reduce((s, inv) => s + inv.estimatedCurrent, 0);
-              const total1y = investmentAnalysis.reduce((s, inv) => s + inv.projections[0].value, 0);
-              const total5y = investmentAnalysis.reduce((s, inv) => s + inv.projections[3].value, 0);
-              const total10y = investmentAnalysis.reduce((s, inv) => s + inv.projections[4].value, 0);
+            {analyzed.map((inv) => {
+              const barWidth = Math.min(100, inv.cdiPct);
+              const t = getType(inv.type);
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <p className="text-xs text-slate-400">Valor estimado hoje</p>
-                    <p className="text-base font-semibold text-slate-800">{formatMoney(totalNow)}</p>
-                    <p className="text-[11px] text-emerald-600 mt-0.5">+{formatMoney(totalNow - totalInvested)} de rendimento</p>
+                <div key={inv.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${t.color}`} />
+                      <span className="text-sm text-slate-700 font-medium">{inv.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-sm font-semibold ${inv.cdiDiff >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                        {inv.cdiDiff >= 0 ? "+" : ""}{inv.cdiDiff.toFixed(2)}% vs CDI
+                      </span>
+                      <span className="text-xs text-slate-400">{inv.cdiPct.toFixed(0)}%</span>
+                    </div>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <p className="text-xs text-slate-400">Em 1 ano</p>
-                    <p className="text-base font-semibold text-slate-800">{formatMoney(total1y)}</p>
-                    <p className="text-[11px] text-emerald-600 mt-0.5">+{formatMoney(total1y - totalInvested)}</p>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <p className="text-xs text-slate-400">Em 5 anos</p>
-                    <p className="text-base font-semibold text-slate-800">{formatMoney(total5y)}</p>
-                    <p className="text-[11px] text-emerald-600 mt-0.5">+{formatMoney(total5y - totalInvested)}</p>
-                  </div>
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                    <p className="text-xs text-emerald-500">Em 10 anos</p>
-                    <p className="text-base font-semibold text-emerald-700">{formatMoney(total10y)}</p>
-                    <p className="text-[11px] text-emerald-600 mt-0.5">+{formatMoney(total10y - totalInvested)} ({totalInvested > 0 ? `${(((total10y - totalInvested) / totalInvested) * 100).toFixed(0)}%` : '-'})</p>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        inv.cdiPct >= 120 ? "bg-emerald-500" :
+                        inv.cdiPct >= 100 ? "bg-blue-500" :
+                        inv.cdiPct >= 80  ? "bg-amber-400" : "bg-red-400"
+                      }`}
+                      style={{ width: `${barWidth}%` }}
+                    />
                   </div>
                 </div>
               );
-            })()}
+            })}
           </div>
-        ) : (
-          <p className="text-sm text-slate-400">Cadastre investimentos para ver projeções de metas.</p>
-        )}
-      </section>
 
-      {/* Add/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
-          <div className="bg-white p-6 rounded-xl w-full max-w-md border border-slate-200 shadow-lg">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">
-              {editingInv ? "Editar Investimento" : "Novo Investimento"}
-            </h2>
-            <form onSubmit={handleSave} className="space-y-4">
-              <input type="text" placeholder="Nome do Investimento" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
-              <input type="number" placeholder="Valor" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
-              <select value={type} onChange={(e) => setType(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                <option value="stocks">Ações</option>
-                <option value="etfs">ETFs</option>
-                <option value="bonds">Títulos</option>
-                <option value="reits">FIIs</option>
-                <option value="crypto">Criptomoedas</option>
-                <option value="commodities">Commodities</option>
-                <option value="cash">Caixa / Reserva</option>
-                <option value="other">Outros</option>
-              </select>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
-              <input type="number" placeholder="Retorno Esperado (% a.a.)" value={expectedReturn} onChange={(e) => setExpectedReturn(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" step="0.01" />
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">Cancelar</button>
-                <button type="submit" className="px-5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition">Salvar</button>
-              </div>
-            </form>
-          </div>
+          {(() => {
+            const below = analyzed.filter((i) => i.cdiDiff < 0).length;
+            if (below === 0) return <p className="text-xs text-emerald-600 mt-4 pt-3 border-t border-slate-100">Todos os ativos superam o CDI.</p>;
+            if (below === analyzed.length) return <p className="text-xs text-amber-600 mt-4 pt-3 border-t border-slate-100">Todos os ativos estão abaixo do CDI. Considere renda fixa pós-fixada.</p>;
+            return <p className="text-xs text-slate-500 mt-4 pt-3 border-t border-slate-100">{below} ativo{below !== 1 ? "s" : ""} abaixo do CDI. Avalie realocar para ativos mais rentáveis.</p>;
+          })()}
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {isDeleteModalOpen && (
+      {/* ── Projeções da carteira ────────────────────────────────────────────── */}
+      {analyzed.length > 0 && (() => {
+        const totalNow = analyzed.reduce((s, i) => s + i.curr, 0);
+        const get = (yi) => analyzed.reduce((s, i) => s + (i.projections[yi]?.value || 0), 0);
+        const items = [
+          { label: "Hoje",     value: totalNow,  sub: totalNow - totalInvested,    green: false },
+          { label: "1 ano",    value: get(0),    sub: get(0) - totalInvested,      green: false },
+          { label: "5 anos",   value: get(3),    sub: get(3) - totalInvested,      green: false },
+          { label: "10 anos",  value: get(4),    sub: get(4) - totalInvested,      green: true  },
+        ];
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">Projeções de longo prazo</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {items.map((item) => (
+                <div key={item.label} className={`rounded-xl border p-3.5 ${item.green ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200"}`}>
+                  <p className={`text-xs mb-1 ${item.green ? "text-emerald-600" : "text-slate-400"}`}>{item.label}</p>
+                  <p className={`text-base font-bold truncate ${item.green ? "text-emerald-700" : "text-slate-800"}`}>{fmt(item.value)}</p>
+                  {item.sub !== 0 && (
+                    <p className="text-xs text-emerald-600 mt-0.5">+{fmt(item.sub)}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Simulator ───────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-slate-700">Simular investimento</h3>
+          <p className="text-xs text-slate-400">Projete o crescimento de qualquer valor com juros compostos</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          {[
+            { label: "Valor inicial (R$)",    value: simAmount,  set: setSimAmount,  step: "100"  },
+            { label: "Aporte mensal (R$)",    value: simMonthly, set: setSimMonthly, step: "50"   },
+            { label: "Retorno anual (%)",     value: simRate,    set: setSimRate,    step: "0.5"  },
+            { label: "Prazo (anos)",          value: simYears,   set: setSimYears,   step: "1"    },
+          ].map((f) => (
+            <div key={f.label}>
+              <label className="block text-xs text-slate-400 mb-1.5">{f.label}</label>
+              <input
+                type="number" value={f.value} onChange={(e) => f.set(e.target.value)} step={f.step}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+            <p className="text-xs text-slate-400 mb-1">Total investido</p>
+            <p className="text-base font-bold text-slate-700">{fmt(simInvested)}</p>
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+            <p className="text-xs text-slate-400 mb-1">Valor final</p>
+            <p className="text-base font-bold text-slate-800">{fmt(simTotal)}</p>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5">
+            <p className="text-xs text-emerald-600 mb-1">Juros compostos</p>
+            <p className="text-base font-bold text-emerald-700">{fmt(simYield_)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Modal criar/editar ───────────────────────────────────────────────── */}
+      {modal !== null && (
+        <InvestModal
+          inv={modal.inv}
+          onClose={() => setModal(null)}
+          onSaved={loadData}
+        />
+      )}
+
+      {/* ── Modal deletar ────────────────────────────────────────────────────── */}
+      {deleteId && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
-          <div className="bg-white p-6 rounded-xl w-full max-w-sm text-center border border-slate-200 shadow-lg">
-            <h2 className="text-lg font-semibold text-slate-800 mb-2">Confirmar Exclusão</h2>
-            <p className="text-sm text-slate-500 mb-6">Deseja realmente excluir este investimento?</p>
+          <div className="bg-white p-6 rounded-xl w-full max-w-sm mx-4 text-center border border-slate-200 shadow-lg">
+            <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h2 className="text-base font-semibold text-slate-800 mb-1">Excluir investimento</h2>
+            <p className="text-sm text-slate-500 mb-5">Esta ação não pode ser desfeita.</p>
             <div className="flex justify-center gap-3">
-              <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg border border-slate-200 transition">Cancelar</button>
+              <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition">Cancelar</button>
               <button onClick={confirmDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">Excluir</button>
             </div>
           </div>
