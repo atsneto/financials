@@ -1,9 +1,19 @@
 /* App-level overrides — kept minimal */
 
-/* SVG icon: black in light mode, white in dark mode */
+/* SVG icon: black in light mode, amber in dark mode */
 .icon-adaptive {
   filter: brightness(0) saturate(100%);
 }
 .dark .icon-adaptive {
-  filter: brightness(0) invert(1);
+  filter: brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%);
+}
+
+/* Amber icon variant for use on amber-tinted backgrounds */
+.dark .icon-amber {
+  filter: brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%);
+}
+
+/* Red icon variant for danger alerts */
+.dark .icon-danger {
+  filter: brightness(0) saturate(100%) invert(56%) sepia(87%) saturate(500%) hue-rotate(314deg) brightness(103%);
 }

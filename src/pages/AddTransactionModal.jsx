@@ -3,8 +3,13 @@ import { supabase } from "../supabaseClient";
 import iconCreditCard from "../svg/credit-card.svg";
 import iconCheck from "../svg/check.svg";
 import { getBank } from "../utils/banks";
+import { useTheme } from "../context/ThemeContext";
 
 export default function AddTransactionModal({ isOpen, onClose, onSuccess }) {
+  const { theme } = useTheme();
+  const iconAmber = theme === "dark"
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
+    : "brightness(0) saturate(100%)";
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("income");
@@ -270,7 +275,7 @@ export default function AddTransactionModal({ isOpen, onClose, onSuccess }) {
                           <img src={bank.logo} alt={bank.label} className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <img src={iconCreditCard} alt="" className="w-4 h-4 flex-shrink-0" style={{ filter: "brightness(0) saturate(100%)" }} />
+                        <img src={iconCreditCard} alt="" className="w-4 h-4 flex-shrink-0" style={{ filter: iconAmber }} />
                       )}
                       <span className="flex-1 text-left font-medium">{card.name}</span>
                       {card.last_four && (

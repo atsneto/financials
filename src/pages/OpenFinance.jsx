@@ -7,8 +7,14 @@ import {
 } from "../services/pluggyService";
 import { usePluggyConnect } from "../hooks/usePluggyConnect";
 import lawBuilding from "../svg/globe.svg";
+import { useTheme } from "../context/ThemeContext";
 
 export default function OpenFinance() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const iconAmberFaint = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%) opacity(0.4)"
+    : "brightness(0) saturate(100%) opacity(0.4)";
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -213,8 +219,8 @@ export default function OpenFinance() {
       {/* Conexões */}
       {connections.length === 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
-            <img src={lawBuilding} alt="" className="w-8 h-8 opacity-40" />
+          <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-amber-950/40 flex items-center justify-center mx-auto mb-4">
+            <img src={lawBuilding} alt="" className="w-8 h-8" style={{ filter: iconAmberFaint }} />
           </div>
           <h3 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
             Nenhuma conta conectada

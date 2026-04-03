@@ -46,6 +46,10 @@
     --color-chart-cursor: rgba(255, 255, 255, 0.04);
     --color-tooltip-bg: #131825;
     --color-tooltip-border: #1F2A3D;
+    /* Amber accent — matches health score "Regular" pattern */
+    --color-accent: #f59e0b;           /* amber-500 */
+    --color-accent-subtle: rgba(245, 158, 11, 0.12);
+    --color-accent-border: rgba(120, 53, 15, 0.30); /* amber-900/30 */
   }
 
   body {

@@ -20,14 +20,14 @@ import iconTrash from "../svg/trash.svg";
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const TYPES = [
-  { id: "stocks",     label: "Ações",       color: "bg-blue-500",    light: "bg-blue-50",    text: "text-blue-700",    border: "border-blue-200",   icon: iconChartBar },
-  { id: "etfs",       label: "ETFs",        color: "bg-violet-500",  light: "bg-violet-50",  text: "text-violet-700",  border: "border-violet-200", icon: iconChart    },
-  { id: "bonds",      label: "Renda Fixa",  color: "bg-emerald-500", light: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200",icon: iconCard     },
-  { id: "reits",      label: "FIIs",        color: "bg-amber-500",   light: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-200",  icon: iconBag      },
-  { id: "crypto",     label: "Cripto",      color: "bg-orange-500",  light: "bg-orange-50",  text: "text-orange-700",  border: "border-orange-200", icon: iconChartBar },
-  { id: "commodities",label: "Commodities", color: "bg-yellow-500",  light: "bg-yellow-50",  text: "text-yellow-700",  border: "border-yellow-200", icon: iconBag      },
-  { id: "cash",       label: "Reserva",     color: "bg-slate-400",   light: "bg-slate-50",   text: "text-slate-600",   border: "border-slate-200",  icon: iconWallet   },
-  { id: "other",      label: "Outros",      color: "bg-slate-400",   light: "bg-slate-50",   text: "text-slate-600",   border: "border-slate-200",  icon: iconWallet   },
+  { id: "stocks",     label: "Ações",       color: "bg-blue-500",    light: "bg-blue-50 dark:bg-amber-950/40",    text: "text-blue-700 dark:text-amber-400",    border: "border-blue-200 dark:border-amber-800/50",   icon: iconChartBar },
+  { id: "etfs",       label: "ETFs",        color: "bg-violet-500",  light: "bg-violet-50 dark:bg-amber-950/40",  text: "text-violet-700 dark:text-amber-400",  border: "border-violet-200 dark:border-amber-800/50", icon: iconChart    },
+  { id: "bonds",      label: "Renda Fixa",  color: "bg-emerald-500", light: "bg-emerald-50 dark:bg-amber-950/40", text: "text-emerald-700 dark:text-amber-400", border: "border-emerald-200 dark:border-amber-800/50",icon: iconCard     },
+  { id: "reits",      label: "FIIs",        color: "bg-amber-500",   light: "bg-amber-50 dark:bg-amber-950/40",   text: "text-amber-700 dark:text-amber-400",   border: "border-amber-200 dark:border-amber-800/50",  icon: iconBag      },
+  { id: "crypto",     label: "Cripto",      color: "bg-orange-500",  light: "bg-orange-50 dark:bg-amber-950/40",  text: "text-orange-700 dark:text-amber-400",  border: "border-orange-200 dark:border-amber-800/50", icon: iconChartBar },
+  { id: "commodities",label: "Commodities", color: "bg-yellow-500",  light: "bg-yellow-50 dark:bg-amber-950/40",  text: "text-yellow-700 dark:text-amber-400",  border: "border-yellow-200 dark:border-amber-800/50", icon: iconBag      },
+  { id: "cash",       label: "Reserva",     color: "bg-slate-400",   light: "bg-slate-50 dark:bg-amber-950/40",   text: "text-slate-600 dark:text-amber-400",   border: "border-slate-200 dark:border-amber-800/50",  icon: iconWallet   },
+  { id: "other",      label: "Outros",      color: "bg-slate-400",   light: "bg-slate-50 dark:bg-amber-950/40",   text: "text-slate-600 dark:text-amber-400",   border: "border-slate-200 dark:border-amber-800/50",  icon: iconWallet   },
 ];
 
 const getType = (id) => TYPES.find((t) => t.id === id) || TYPES[TYPES.length - 1];
@@ -46,13 +46,22 @@ function calcEstimated(amt, rate, daysHeld) {
 // ─── TypeIcon ─────────────────────────────────────────────────────────────────
 
 function TypeIcon({ icon, className = "w-4 h-4" }) {
-  return <img src={icon} alt="" className={className} style={{ filter: "brightness(0) saturate(100%)" }} />;
+  const { theme } = useTheme();
+  const _isDark = theme === "dark";
+  const _filter = _isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
+    : "brightness(0) saturate(100%)";
+  return <img src={icon} alt="" className={className} style={{ filter: _filter }} />;
 }
 
 // ─── InvestModal ──────────────────────────────────────────────────────────────
 
 function InvestModal({ inv, onClose, onSaved }) {
   const isEditing = !!inv?.id;
+  const { theme: _theme } = useTheme();
+  const _iconAmber = _theme === "dark"
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
+    : "brightness(0) saturate(100%)";
   const [name, setName]             = useState(inv?.name || "");
   const [amount, setAmount]         = useState(inv?.amount?.toString() || "");
   const [type, setType]             = useState(inv?.type || "stocks");
@@ -125,7 +134,7 @@ function InvestModal({ inv, onClose, onSaved }) {
                   }`}
                 >
                   <TypeIcon icon={t.icon} className="w-4 h-4" />
-                  {t.label}
+                  <span className="truncate">{t.label}</span>
                 </button>
               ))}
             </div>
@@ -169,7 +178,7 @@ function InvestModal({ inv, onClose, onSaved }) {
 
           {error && (
             <p className="text-xs text-red-600 flex items-center gap-1">
-              <img src={iconInfo} alt="" className="w-3.5 h-3.5" style={{ filter: "brightness(0) saturate(100%)" }} />
+              <img src={iconInfo} alt="" className="w-3.5 h-3.5" style={{ filter: _iconAmber }} />
               {error}
             </p>
           )}
@@ -197,6 +206,12 @@ function InvestModal({ inv, onClose, onSaved }) {
 export default function Investiments() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const iconAmber = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
+    : "brightness(0) saturate(100%)";
+  const iconAmberSubtle = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%) opacity(0.6)"
+    : "brightness(0) saturate(100%) opacity(0.6)";
   const [investments, setInvestments] = useState([]);
   const [modal, setModal]             = useState(null); // null | {} | { inv }
   const [deleteId, setDeleteId]       = useState(null);
@@ -411,8 +426,8 @@ export default function Investiments() {
       {/* ── Investment list ──────────────────────────────────────────────────── */}
       {investments.length === 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
-          <div className="w-14 h-14 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <img src={iconChartBar} alt="" className="w-7 h-7 opacity-30" />
+          <div className="w-14 h-14 bg-slate-100 dark:bg-amber-950/40 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <img src={iconChartBar} alt="" className="w-7 h-7" style={{ filter: iconAmberSubtle }} />
           </div>
           <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Nenhum investimento cadastrado</h3>
           <p className="text-sm text-slate-400 dark:text-slate-500 max-w-xs mx-auto mb-5">
@@ -487,14 +502,14 @@ export default function Investiments() {
                       className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition"
                       title="Editar"
                     >
-                      <img src={iconPen} alt="" className="w-3.5 h-3.5" style={{ filter: "brightness(0) saturate(100%) opacity(0.6)" }} />
+                      <img src={iconPen} alt="" className="w-3.5 h-3.5" style={{ filter: iconAmberSubtle }} />
                     </button>
                     <button
                       onClick={() => setDeleteId(inv.id)}
                       className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
                       title="Excluir"
                     >
-                      <img src={iconTrash} alt="" className="w-3.5 h-3.5" style={{ filter: "brightness(0) saturate(100%) opacity(0.6)" }} />
+                      <img src={iconTrash} alt="" className="w-3.5 h-3.5" style={{ filter: iconAmberSubtle }} />
                     </button>
                   </div>
                 </div>
@@ -645,7 +660,7 @@ export default function Investiments() {
         <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
           <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-full max-w-sm mx-4 text-center border border-slate-200 dark:border-slate-700 shadow-lg">
             <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <img src={iconTrash} alt="" className="w-5 h-5" style={{ filter: "brightness(0) saturate(100%)" }} />
+              <img src={iconTrash} alt="" className="w-5 h-5" style={{ filter: iconAmber }} />
             </div>
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">Excluir investimento</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Esta ação não pode ser desfeita.</p>

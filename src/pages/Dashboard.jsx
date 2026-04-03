@@ -36,6 +36,14 @@ export default function Dashboard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
+  // Icon filters — amber accent in dark mode, black in light
+  const iconAmber = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
+    : "brightness(0) saturate(100%)";
+  const iconDangerFilter = isDark
+    ? "brightness(0) saturate(100%) invert(56%) sepia(87%) saturate(500%) hue-rotate(314deg) brightness(103%)"
+    : "brightness(0) saturate(100%)";
+
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -239,14 +247,14 @@ export default function Dashboard() {
         </div>
         {showTip && activeTips.length > 0 && (
           <div
-            className="hidden sm:flex items-center gap-2 bg-primary-50 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800/50 rounded-xl px-3 py-2 max-w-sm flex-shrink-0"
+            className="hidden sm:flex items-center gap-2 bg-primary-50 dark:bg-amber-950/30 border border-primary-200 dark:border-amber-800/50 rounded-xl px-3 py-2 max-w-sm flex-shrink-0"
             onMouseEnter={() => setTipPaused(true)}
             onMouseLeave={() => setTipPaused(false)}
           >
-            <img src={iconInfo} alt="" className="w-3.5 h-3.5 flex-shrink-0" style={{ filter: "brightness(0) saturate(100%)" }} />
-            <p className="text-xs text-primary-700 dark:text-primary-300 min-w-0 line-clamp-2">
+            <img src={iconInfo} alt="" className="w-3.5 h-3.5 flex-shrink-0" style={{ filter: iconAmber }} />
+            <p className="text-xs text-primary-700 dark:text-amber-300 min-w-0 line-clamp-2">
               <span className="font-medium">{activeTips[tipIndex % activeTips.length]?.title}:</span>{" "}
-              <span className="text-primary-600 dark:text-primary-400">{activeTips[tipIndex % activeTips.length]?.message}</span>
+              <span className="text-primary-600 dark:text-amber-400">{activeTips[tipIndex % activeTips.length]?.message}</span>
             </p>
             <button onClick={() => setShowTip(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 ml-1">
               <img src={iconClose} alt="" className="w-3 h-3 opacity-60" />
@@ -262,7 +270,7 @@ export default function Dashboard() {
             <div key={i} className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border text-xs ${
               alert.type === "danger" ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300"
             }`}>
-              <img src={iconDanger} alt="" className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ filter: "brightness(0) saturate(100%)" }} />
+              <img src={iconDanger} alt="" className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ filter: alert.type === "danger" ? iconDangerFilter : iconAmber }} />
               <span>{alert.msg}</span>
             </div>
           ))}
@@ -272,15 +280,15 @@ export default function Dashboard() {
       {/* TIP (mobile only) */}
       {showTip && activeTips.length > 0 && (
         <section
-          className="sm:hidden bg-primary-50 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800/50 rounded-xl px-3 py-2.5 flex items-start justify-between gap-3"
+          className="sm:hidden bg-primary-50 dark:bg-amber-950/30 border border-primary-200 dark:border-amber-800/50 rounded-xl px-3 py-2.5 flex items-start justify-between gap-3"
           onMouseEnter={() => setTipPaused(true)}
           onMouseLeave={() => setTipPaused(false)}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <img src={iconInfo} alt="" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ filter: "brightness(0) saturate(100%)" }} />
-            <p className="text-xs text-primary-700 dark:text-primary-300 min-w-0">
+            <img src={iconInfo} alt="" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ filter: iconAmber }} />
+            <p className="text-xs text-primary-700 dark:text-amber-300 min-w-0">
               <span className="font-medium">{activeTips[tipIndex % activeTips.length]?.title}:</span>{" "}
-              <span className="text-primary-600 dark:text-primary-400">{activeTips[tipIndex % activeTips.length]?.message}</span>
+              <span className="text-primary-600 dark:text-amber-400">{activeTips[tipIndex % activeTips.length]?.message}</span>
             </p>
           </div>
           <button onClick={() => setShowTip(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0">
@@ -292,10 +300,10 @@ export default function Dashboard() {
       {/* CARDS DE SALDO POR ORIGEM */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Conta Corrente */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%)" }} />
+            <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-amber-950/40 flex items-center justify-center">
+              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: iconAmber }} />
             </div>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Conta Corrente</p>
           </div>
@@ -315,10 +323,10 @@ export default function Dashboard() {
         </div>
 
         {/* Cartão de Crédito */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
-              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%)" }} />
+            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-amber-950/40 flex items-center justify-center">
+              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: iconAmber }} />
             </div>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cartão de Crédito</p>
           </div>
@@ -342,10 +350,10 @@ export default function Dashboard() {
         </div>
 
         {/* Vale Alimentação */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
-              <img src={iconShoppingCart} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%)" }} />
+            <div className="w-7 h-7 rounded-lg bg-green-50 dark:bg-amber-950/40 flex items-center justify-center">
+              <img src={iconShoppingCart} alt="" className="w-4 h-4" style={{ filter: iconAmber }} />
             </div>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vale Alimentação</p>
           </div>
@@ -390,7 +398,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-3">
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 text-center sm:text-left">Projeção fim do mês</p>
           <p className={`text-2xl font-bold mb-1 text-center sm:text-left ${projectedBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
             R$ {projectedBalance.toFixed(2)}
@@ -404,7 +412,7 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 lg:grid-cols-5 gap-3">
 
         {/* Evolução dos gastos - col-span-3 */}
-        <div className="lg:col-span-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <div className="lg:col-span-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-0.5 text-center sm:text-left">Evolução dos gastos</h3>
           <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Acumulado diário de despesas em {monthName}</p>
           <div className="h-64">
@@ -430,7 +438,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 flex flex-col gap-3">
 
           {/* Comparação mensal */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-0.5 text-center sm:text-left">Comparação mensal</h3>
             <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Mês anterior vs atual</p>
             <div className="h-36">
@@ -455,7 +463,7 @@ export default function Dashboard() {
           </div>
 
           {/* Top categorias */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex-1">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4 flex-1">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-0.5 text-center sm:text-left">Categorias com maior gasto</h3>
             <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Top categorias do mês atual</p>
             {topCategories.length > 0 ? (
@@ -503,7 +511,7 @@ function SummaryCard({ label, value, type = "default" }) {
   const isNeg = numeric < 0;
   const displayStyle = isNeg ? styles.danger : s;
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-5 hover:border-slate-300 dark:hover:border-amber-700/50 transition-colors">
       <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
         <span className={`w-2 h-2 rounded-full ${displayStyle.dot}`} />
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</p>

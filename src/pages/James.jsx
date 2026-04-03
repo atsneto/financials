@@ -1,6 +1,7 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useJames } from "../context/AIContext";
+import { useTheme } from "../context/ThemeContext";
 import jamesAvatar from "../svg/bot.svg";
 import iconTrendingDown from "../svg/trending-down.svg";
 import iconDanger from "../svg/danger.svg";
@@ -10,7 +11,6 @@ import iconCreditCard from "../svg/credit-card.svg";
 import iconCheckO from "../svg/check-o.svg";
 import iconInfo from "../svg/info.svg";
 import iconTag from "../svg/tag.svg";
-import iconSync from "../svg/sync.svg";
 import iconSun from "../svg/sun.svg";
 import iconChevronRight from "../svg/chevron-right.svg";
 import iconInsights from "../svg/insights.svg";
@@ -25,6 +25,9 @@ function fmtPct(n) {
   return (n >= 0 ? "+" : "") + Number(n).toFixed(1) + "%";
 }
 
+const AMBER_FILTER = "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)";
+const BLACK_FILTER = "brightness(0) saturate(100%)";
+
 // ─── Action type config ───────────────────────────────────────────────────────
 
 const TYPE_CONFIG = {
@@ -33,65 +36,65 @@ const TYPE_CONFIG = {
     bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-100 dark:border-red-800/50",
     iconBg: "bg-red-100 dark:bg-red-900/40", iconColor: "text-red-500 dark:text-red-400", labelColor: "text-red-500 dark:text-red-400",
     valueBg: "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400",
-    icon: <img src={iconTrendingDown} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconTrendingDown,
   },
   control: {
     label: "Controlar",
     bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-100 dark:border-amber-800/50",
     iconBg: "bg-amber-100 dark:bg-amber-900/40", iconColor: "text-amber-500 dark:text-amber-400", labelColor: "text-amber-500 dark:text-amber-400",
     valueBg: "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
-    icon: <img src={iconDanger} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconDanger,
   },
   save: {
     label: "Economizar",
     bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-100 dark:border-blue-800/50",
     iconBg: "bg-blue-100 dark:bg-blue-900/40", iconColor: "text-blue-500 dark:text-blue-400", labelColor: "text-blue-500 dark:text-blue-400",
     valueBg: "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400",
-    icon: <img src={iconDollar} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconDollar,
   },
   invest: {
     label: "Investir",
     bg: "bg-violet-50 dark:bg-violet-950/30", border: "border-violet-100 dark:border-violet-800/50",
     iconBg: "bg-violet-100 dark:bg-violet-900/40", iconColor: "text-violet-500 dark:text-violet-400", labelColor: "text-violet-500 dark:text-violet-400",
     valueBg: "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400",
-    icon: <img src={iconTrending} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconTrending,
   },
   pay_debt: {
     label: "Quitar",
     bg: "bg-orange-50 dark:bg-orange-950/30", border: "border-orange-100 dark:border-orange-800/50",
     iconBg: "bg-orange-100 dark:bg-orange-900/40", iconColor: "text-orange-500 dark:text-orange-400", labelColor: "text-orange-500 dark:text-orange-400",
     valueBg: "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400",
-    icon: <img src={iconCreditCard} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconCreditCard,
   },
   positive: {
     label: "Parabéns",
     bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-100 dark:border-emerald-800/50",
     iconBg: "bg-emerald-100 dark:bg-emerald-900/40", iconColor: "text-emerald-500 dark:text-emerald-400", labelColor: "text-emerald-500 dark:text-emerald-400",
     valueBg: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400",
-    icon: <img src={iconCheckO} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconCheckO,
   },
 };
 
 const ALERT_STYLES = {
-  high: { bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300", icon: <img src={iconDanger} alt="" className="w-4 h-4 flex-shrink-0 mt-0.5 icon-adaptive" /> },
-  medium: { bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300", icon: <img src={iconInfo} alt="" className="w-4 h-4 flex-shrink-0 mt-0.5 icon-adaptive" /> },
-  low: { bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300", icon: <img src={iconInfo} alt="" className="w-4 h-4 flex-shrink-0 mt-0.5 icon-adaptive" /> },
+  high:   { bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300",       iconSrc: iconDanger },
+  medium: { bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300", iconSrc: iconInfo },
+  low:    { bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300",   iconSrc: iconInfo },
 };
 
 const PAYMENT_CONFIG = {
   credit_card: {
     label: "Cartão de crédito",
-    icon: <img src={iconCreditCard} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconCreditCard,
     color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-950/30", border: "border-violet-100 dark:border-violet-800/50",
   },
   debit_pix: {
     label: "Débito / PIX",
-    icon: <img src={iconDollar} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconDollar,
     color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-100 dark:border-emerald-800/50",
   },
   meal_voucher: {
     label: "Vale alimentação",
-    icon: <img src={iconTag} alt="" className="w-5 h-5 icon-adaptive" />,
+    iconSrc: iconTag,
     color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-100 dark:border-amber-800/50",
   },
 };
@@ -100,7 +103,10 @@ const PAYMENT_CONFIG = {
 
 export default function James() {
   const { data, status, refresh } = useJames();
+  const { theme } = useTheme();
   const navigate = useNavigate();
+  const isDark = theme === "dark";
+  const iconAmber = isDark ? AMBER_FILTER : BLACK_FILTER;
 
   useEffect(() => {
     if (status === "idle") refresh();
@@ -126,7 +132,7 @@ export default function James() {
         <button
           onClick={refresh}
           disabled={status === "loading"}
-          className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-40"
+          className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-40"
           title="Atualizar"
         >
           <svg className={`w-4 h-4 ${status === "loading" ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -140,9 +146,9 @@ export default function James() {
 
       {/* Error */}
       {status === "error" && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-8 text-center">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 p-8 text-center">
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Não foi possível carregar a análise.</p>
-          <button onClick={refresh} className="text-sm text-violet-600 hover:text-violet-800 font-medium transition">
+          <button onClick={refresh} className="text-sm text-violet-600 dark:text-amber-400 hover:text-violet-800 dark:hover:text-amber-300 font-medium transition">
             Tentar novamente
           </button>
         </div>
@@ -164,7 +170,7 @@ export default function James() {
                 const style = ALERT_STYLES[alert.severity] || ALERT_STYLES.low;
                 return (
                   <div key={i} className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border text-sm ${style.bg}`}>
-                    {style.icon}
+                    <img src={style.iconSrc} alt="" className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ filter: iconAmber }} />
                     <span>{alert.message}</span>
                   </div>
                 );
@@ -188,7 +194,7 @@ export default function James() {
       )}
 
       {status === "done" && !data && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-8 text-center">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 p-8 text-center">
           <p className="text-sm text-slate-500 dark:text-slate-400">Nenhuma análise disponível no momento.</p>
         </div>
       )}
@@ -199,16 +205,18 @@ export default function James() {
 // ─── Daily Summary Card ───────────────────────────────────────────────────────
 
 function DailySummaryCard({ stats, summary, onNavigate }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   if (!stats) return null;
   const { todaySpent, todayCount } = stats;
 
   return (
     <div
-      className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-4 flex items-center gap-4 cursor-pointer hover:border-slate-200 dark:hover:border-slate-700 transition"
+      className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 p-4 flex items-center gap-4 cursor-pointer hover:border-slate-200 dark:hover:border-amber-700/50 transition"
       onClick={() => onNavigate("/transactions")}
     >
-      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
-        <img src={iconSun} alt="" className="w-5 h-5 icon-adaptive opacity-50" />
+      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-amber-950/40 flex items-center justify-center flex-shrink-0">
+        <img src={iconSun} alt="" className="w-5 h-5" style={{ filter: isDark ? `${AMBER_FILTER} opacity(0.6)` : `${BLACK_FILTER} opacity(0.5)` }} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Gasto hoje</p>
@@ -218,7 +226,7 @@ function DailySummaryCard({ stats, summary, onNavigate }) {
       {summary && (
         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[48%] text-right leading-relaxed hidden sm:block">{summary}</p>
       )}
-      <img src={iconChevronRight} alt="" className="w-4 h-4 icon-adaptive opacity-30 flex-shrink-0" />
+      <img src={iconChevronRight} alt="" className="w-4 h-4 flex-shrink-0" style={{ filter: isDark ? `${AMBER_FILTER} opacity(0.4)` : `${BLACK_FILTER} opacity(0.3)` }} />
     </div>
   );
 }
@@ -226,6 +234,8 @@ function DailySummaryCard({ stats, summary, onNavigate }) {
 // ─── Monthly Card ─────────────────────────────────────────────────────────────
 
 function MonthlyCard({ stats, insight }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   if (!stats) return null;
   const {
     totalExpense, totalIncome, balance, savingsRate,
@@ -237,7 +247,7 @@ function MonthlyCard({ stats, insight }) {
   const monthName = new Date().toLocaleDateString("pt-BR", { month: "long" });
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-5 space-y-4">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 p-5 space-y-4">
       {/* Top row */}
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -284,8 +294,8 @@ function MonthlyCard({ stats, insight }) {
 
       {/* AI insight */}
       {insight && (
-        <div className="border-t border-slate-100 dark:border-slate-700 pt-3 flex items-start gap-2">
-          <img src={iconInsights} alt="" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 icon-adaptive opacity-60" />
+        <div className="border-t border-slate-100 dark:border-amber-900/30 pt-3 flex items-start gap-2">
+          <img src={iconInsights} alt="" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ filter: isDark ? `${AMBER_FILTER} opacity(0.6)` : `${BLACK_FILTER} opacity(0.6)` }} />
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{insight}</p>
         </div>
       )}
@@ -296,6 +306,9 @@ function MonthlyCard({ stats, insight }) {
 // ─── Payment Section ──────────────────────────────────────────────────────────
 
 function PaymentSection({ stats, tips }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const iconAmber = isDark ? AMBER_FILTER : BLACK_FILTER;
   if (!stats) return null;
   const { creditCardSpent, debitPixSpent, mealVoucherSpent } = stats;
 
@@ -316,8 +329,8 @@ function PaymentSection({ stats, tips }) {
           const tip = tips?.[key];
           return (
             <div key={key} className={`rounded-2xl border ${cfg.border} ${cfg.bg} p-4`}>
-              <div className={`w-8 h-8 rounded-xl bg-white/60 dark:bg-slate-700/60 flex items-center justify-center mb-2 ${cfg.color}`}>
-                {cfg.icon}
+              <div className="w-8 h-8 rounded-xl bg-white/60 dark:bg-amber-950/40 flex items-center justify-center mb-2">
+                <img src={cfg.iconSrc} alt="" className="w-5 h-5" style={{ filter: iconAmber }} />
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{cfg.label}</p>
               <p className={`text-base font-bold ${cfg.color}`}>{fmtCurrency(amount)}</p>
@@ -333,12 +346,15 @@ function PaymentSection({ stats, tips }) {
 // ─── Action Card ──────────────────────────────────────────────────────────────
 
 function ActionCard({ action, onNavigate }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const iconAmber = isDark ? AMBER_FILTER : BLACK_FILTER;
   const cfg = TYPE_CONFIG[action.type] || TYPE_CONFIG.save;
 
   return (
     <div className={`rounded-2xl border ${cfg.border} ${cfg.bg} p-5 flex gap-4`}>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.iconBg} ${cfg.iconColor}`}>
-        {cfg.icon}
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.iconBg}`}>
+        <img src={cfg.iconSrc} alt="" className="w-5 h-5" style={{ filter: iconAmber }} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 mb-1">
@@ -353,7 +369,7 @@ function ActionCard({ action, onNavigate }) {
         {action.link && action.linkLabel && (
           <button
             onClick={() => onNavigate(action.link)}
-            className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg bg-white/70 dark:bg-slate-800/80 border border-white dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition"
+            className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg bg-white/70 dark:bg-slate-800/80 border border-white dark:border-amber-900/40 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition"
           >
             {action.linkLabel} →
           </button>
@@ -369,7 +385,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
       {/* Daily summary skeleton */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-4 flex items-center gap-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 p-4 flex items-center gap-4">
         <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex-shrink-0" />
         <div className="flex-1 space-y-1.5">
           <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded w-16" />
@@ -378,7 +394,7 @@ function LoadingSkeleton() {
         </div>
       </div>
       {/* Monthly card skeleton */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-5 space-y-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 p-5 space-y-4">
         <div className="flex justify-between">
           <div className="space-y-2">
             <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded w-28" />
@@ -401,7 +417,7 @@ function LoadingSkeleton() {
       </div>
       {/* Action cards skeleton */}
       {[1, 2, 3].map(i => (
-        <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-5 flex gap-4">
+        <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 p-5 flex gap-4">
           <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex-shrink-0" />
           <div className="flex-1 space-y-2 pt-1">
             <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-2/5" />

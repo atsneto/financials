@@ -42,6 +42,9 @@ export default function CreditCard() {
   const [selectedCardId, setSelectedCardId] = useState(null); // null = todos
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const iconAmberSubtle = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%) opacity(0.6)"
+    : "brightness(0) saturate(100%) opacity(0.6)";
 
   // Filtro de mês/ano para a lista de compras
   const nowDate = new Date();
@@ -564,10 +567,10 @@ export default function CreditCard() {
                       );
                     })()}
                     <button onClick={() => openEditModal(p)} className="text-slate-400 dark:text-slate-500 hover:text-primary-600 transition opacity-0 group-hover:opacity-100" aria-label="Editar compra">
-                      <img src={iconPen} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.6)" }} />
+                      <img src={iconPen} alt="" className="w-4 h-4" style={{ filter: iconAmberSubtle }} />
                     </button>
                     <button onClick={() => handleDelete(p.id)} className="text-slate-400 dark:text-slate-500 hover:text-red-500 transition opacity-0 group-hover:opacity-100" aria-label="Apagar compra">
-                      <img src={iconTrash} alt="" className="h-4 w-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.6)" }} />
+                      <img src={iconTrash} alt="" className="h-4 w-4" style={{ filter: iconAmberSubtle }} />
                     </button>
                   </div>
                 </li>

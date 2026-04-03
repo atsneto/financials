@@ -15,7 +15,11 @@ import iconTrash from "../svg/trash.svg";
 
 // ── Nav icon helper ───────────────────────────────────────────────────────────
 function NavIcon({ src, className = "w-4.5 h-4.5" }) {
-  return <img src={src} alt="" className={className} style={{ filter: "brightness(0) saturate(100%)" }} />;
+  const { theme } = useTheme();
+  const _filter = theme === "dark"
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
+    : "brightness(0) saturate(100%)";
+  return <img src={src} alt="" className={className} style={{ filter: _filter }} />;
 }
 
 // ── Toggle component ──────────────────────────────────────────────────────────
@@ -54,15 +58,25 @@ function SectionCard({ title, description, children, action }) {
 }
 
 const NAV = [
-  { id: "financeiro",    label: "Financeiro",    icon: iconDollar,      color: "text-blue-600",   bg: "bg-blue-50" },
-  { id: "pagamentos",    label: "Pagamentos",    icon: iconCreditCard,  color: "text-violet-600", bg: "bg-violet-50" },
-  { id: "seguranca",     label: "Segurança",     icon: iconLock,        color: "text-green-600",  bg: "bg-green-50" },
-  { id: "sistema",       label: "Sistema",       icon: iconOptions,     color: "text-slate-600",  bg: "bg-slate-100" },
-  { id: "notificacoes",  label: "Notificações",  icon: iconBell,        color: "text-amber-600",  bg: "bg-amber-50" },
+  { id: "financeiro",    label: "Financeiro",    icon: iconDollar,      color: "text-blue-600 dark:text-amber-400",   bg: "bg-blue-50 dark:bg-amber-950/40" },
+  { id: "pagamentos",    label: "Pagamentos",    icon: iconCreditCard,  color: "text-violet-600 dark:text-amber-400", bg: "bg-violet-50 dark:bg-amber-950/40" },
+  { id: "seguranca",     label: "Segurança",     icon: iconLock,        color: "text-green-600 dark:text-amber-400",  bg: "bg-green-50 dark:bg-amber-950/40" },
+  { id: "sistema",       label: "Sistema",       icon: iconOptions,     color: "text-slate-600 dark:text-amber-400",  bg: "bg-slate-100 dark:bg-amber-950/40" },
+  { id: "notificacoes",  label: "Notificações",  icon: iconBell,        color: "text-amber-600 dark:text-amber-400",  bg: "bg-amber-50 dark:bg-amber-950/40" },
 ];
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+  const iconAmber = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
+    : "brightness(0) saturate(100%)";
+  const iconAmberSubtle = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%) opacity(0.5)"
+    : "brightness(0) saturate(100%) opacity(0.5)";
+  const iconAmberFaint = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%) opacity(0.4)"
+    : "brightness(0) saturate(100%) opacity(0.4)";
   const [activeSection, setActiveSection] = useState("financeiro");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -297,8 +311,8 @@ export default function Settings() {
               <div className="space-y-3">
                 {cards.length === 0 && !cardDraft ? (
                   <div className="text-center py-6">
-                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-xl flex items-center justify-center mx-auto mb-2">
-                      <img src={iconCreditCard} alt="" className="w-5 h-5" style={{ filter: "brightness(0) saturate(100%) opacity(0.4)" }} />
+                    <div className="w-10 h-10 bg-slate-100 dark:bg-amber-950/40 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <img src={iconCreditCard} alt="" className="w-5 h-5" style={{ filter: iconAmberFaint }} />
                     </div>
                     <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Nenhum cartão cadastrado</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Clique em "Novo cartão" para adicionar</p>
@@ -327,10 +341,10 @@ export default function Settings() {
                         </div>
                         <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button onClick={() => { setCardDraft({ ...card }); setCardError(""); }} className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition" title="Editar">
-                            <img src={iconPen} alt="" className="w-3.5 h-3.5" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
+                            <img src={iconPen} alt="" className="w-3.5 h-3.5" style={{ filter: iconAmberSubtle }} />
                           </button>
                           <button onClick={() => handleDeleteCard(card.id)} className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Excluir">
-                            <img src={iconTrash} alt="" className="w-3.5 h-3.5" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
+                            <img src={iconTrash} alt="" className="w-3.5 h-3.5" style={{ filter: iconAmberSubtle }} />
                           </button>
                         </div>
                       </div>
@@ -346,8 +360,8 @@ export default function Settings() {
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Banco</label>
                       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-44 overflow-y-auto pr-1">
                         <button type="button" onClick={() => setCardDraft(d => { const prev = BANKS.find(b => b.id === d.bank_id); return { ...d, bank_id: "", name: prev && d.name === prev.label ? "" : d.name }; })} className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition ${!cardDraft.bank_id ? "border-primary-500 bg-primary-50 dark:bg-primary-900/30 ring-1 ring-primary-400" : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
-                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                            <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-amber-950/40 flex items-center justify-center">
+                            <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: iconAmberSubtle }} />
                           </div>
                           <span className="text-slate-500 dark:text-slate-400 truncate w-full text-center">Outro</span>
                         </button>
@@ -420,7 +434,7 @@ export default function Settings() {
 
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               <div className="px-6 py-12 flex flex-col items-center text-center gap-3">
-                <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-slate-100 dark:bg-amber-950/40 rounded-2xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
                   </svg>
@@ -665,11 +679,11 @@ export default function Settings() {
                 onClick={() => setActiveSection(id)}
                 className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
                   active
-                    ? "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-800 dark:text-slate-200"
-                    : "text-slate-400 dark:text-slate-500 border border-transparent hover:bg-slate-50 dark:hover:bg-slate-700"
+                    ? "bg-white dark:bg-amber-950/20 border border-slate-200 dark:border-amber-900/40 shadow-sm text-slate-800 dark:text-slate-200"
+                    : "text-slate-400 dark:text-slate-500 border border-transparent hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >
-                <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? bg : "bg-slate-100 dark:bg-slate-700"} ${active ? color : "text-slate-400 dark:text-slate-500"}`}>
+                <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? bg : "bg-slate-100 dark:bg-amber-950/40"} ${active ? color : "text-slate-400 dark:text-amber-600"}`}>
                   <NavIcon src={icon} />
                 </span>
                 {label}
@@ -690,7 +704,7 @@ export default function Settings() {
                   onClick={() => setActiveSection(id)}
                   className={`flex items-center gap-1.5 flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
                     active
-                      ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm text-slate-800 dark:text-slate-200"
+                      ? "bg-white dark:bg-amber-950/20 border-slate-200 dark:border-amber-900/40 shadow-sm text-slate-800 dark:text-slate-200"
                       : "text-slate-400 dark:text-slate-500 border-transparent"
                   }`}
                 >

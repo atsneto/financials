@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
+import { useTheme } from "../context/ThemeContext";
 import iconWallet    from "../svg/dollar.svg";
 import iconChart     from "../svg/chart.svg";
 import iconBanknotes from "../svg/trending-down.svg";
@@ -522,7 +523,7 @@ function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-4">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className={`w-9 h-9 rounded-xl ${gt?.color || "bg-slate-100 dark:bg-slate-700"} flex items-center justify-center flex-shrink-0`}>
+            <div className={`w-9 h-9 rounded-xl ${gt?.color || "bg-slate-100 dark:bg-amber-950/40"} flex items-center justify-center flex-shrink-0`}>
               {gt && <GoalTypeIcon icon={gt.icon} className="w-4.5 h-4.5" dark />}
             </div>
             <div className="min-w-0">
@@ -605,6 +606,11 @@ function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
 // ─── Goals page ───────────────────────────────────────────────────────────────
 
 export default function Goals() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const iconAmberFaint = isDark
+    ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%) opacity(0.4)"
+    : "brightness(0) saturate(100%) opacity(0.4)";
   const [goals, setGoals]               = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -729,8 +735,8 @@ export default function Goals() {
       {/* Metas */}
       {goals.length === 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
-            <img src={iconBag} alt="" className="w-8 h-8" style={{ filter: "brightness(0) saturate(100%) opacity(0.3)" }} />
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-amber-950/40 flex items-center justify-center mx-auto mb-4">
+            <img src={iconBag} alt="" className="w-8 h-8" style={{ filter: iconAmberFaint }} />
           </div>
           <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Nenhuma meta criada</h3>
           <p className="text-sm text-slate-400 dark:text-slate-500 max-w-xs mx-auto mb-5">
