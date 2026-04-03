@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
-import iconWallet    from "../icons/wallet-svgrepo-com.svg";
-import iconChart     from "../icons/chart-pie-svgrepo-com.svg";
-import iconBanknotes from "../icons/banknotes-dollar-money-currency-finance-payment-svgrepo-com.svg";
-import iconCard      from "../icons/card-credit-money-currency-finance-payment-2-svgrepo-com.svg";
-import iconBag       from "../icons/bag-dollar-money-currency-finance-payment-svgrepo-com.svg";
+import iconWallet    from "../svg/dollar.svg";
+import iconChart     from "../svg/chart.svg";
+import iconBanknotes from "../svg/trending-down.svg";
+import iconCard      from "../svg/credit-card.svg";
+import iconBag       from "../svg/shopping-bag.svg";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -141,8 +141,8 @@ function DepositModal({ goal, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative bg-white rounded-xl w-full max-w-sm shadow-lg border border-slate-200 mx-4">
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+      <div className="relative bg-white dark:bg-slate-800 rounded-xl w-full max-w-sm shadow-lg border border-slate-200 dark:border-slate-700 mx-4">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             {gt && (
               <span className={`w-8 h-8 rounded-lg ${gt.color} flex items-center justify-center`}>
@@ -150,11 +150,11 @@ function DepositModal({ goal, onClose, onSaved }) {
               </span>
             )}
             <div>
-              <h2 className="text-sm font-semibold text-slate-800">Adicionar aporte</h2>
-              <p className="text-xs text-slate-400 truncate max-w-[180px]">{goal.title}</p>
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Adicionar aporte</h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[180px]">{goal.title}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition p-1">
+          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition p-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -162,13 +162,13 @@ function DepositModal({ goal, onClose, onSaved }) {
         </div>
         <div className="px-5 py-5 space-y-4">
           {remaining > 0 && (
-            <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2.5">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 rounded-lg px-3 py-2.5">
               <span>Faltam para a meta</span>
-              <span className="font-semibold text-slate-700">{fmtCurrency(remaining)}</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{fmtCurrency(remaining)}</span>
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Valor do aporte (R$)</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Valor do aporte (R$)</label>
             <input
               type="number"
               min="0.01"
@@ -177,12 +177,12 @@ function DepositModal({ goal, onClose, onSaved }) {
               value={amount}
               onChange={(e) => { setAmount(e.target.value); setError(""); }}
               autoFocus
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition">
               Cancelar
             </button>
             <button type="button" onClick={handleDeposit} disabled={saving} className="flex-1 py-2.5 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition disabled:opacity-60">
@@ -268,25 +268,25 @@ function GoalModal({ goal, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative bg-white rounded-xl w-full max-w-lg shadow-lg border border-slate-200 max-h-[90vh] overflow-y-auto mx-4">
+      <div className="relative bg-white dark:bg-slate-800 rounded-xl w-full max-w-lg shadow-lg border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
             {!isEditing && (
               <div className="flex gap-1">
                 {[1, 2].map((s) => (
-                  <span key={s} className={`h-1.5 rounded-full transition-all ${s === step ? "w-5 bg-primary-600" : "w-1.5 bg-slate-200"}`} />
+                  <span key={s} className={`h-1.5 rounded-full transition-all ${s === step ? "w-5 bg-primary-600" : "w-1.5 bg-slate-200 dark:bg-slate-700"}`} />
                 ))}
               </div>
             )}
             <div>
-              <h2 className="text-base font-semibold text-slate-800">
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">
                 {isEditing ? "Editar meta" : step === 1 ? "Qual é o seu objetivo?" : "Configurar meta"}
               </h2>
-              {!isEditing && <p className="text-xs text-slate-400">Passo {step} de 2</p>}
+              {!isEditing && <p className="text-xs text-slate-400 dark:text-slate-500">Passo {step} de 2</p>}
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition p-1">
+          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition p-1">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -301,13 +301,13 @@ function GoalModal({ goal, onClose, onSaved }) {
                 <button
                   key={gt.id}
                   onClick={() => { setType(gt.id); setStep(2); }}
-                  className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-primary-400 hover:bg-primary-50/50 transition group"
+                  className="text-left p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-primary-400 hover:bg-primary-50/50 transition group"
                 >
                   <div className={`w-9 h-9 rounded-lg ${gt.color} flex items-center justify-center mb-3`}>
                     <GoalTypeIcon icon={gt.icon} className="w-4.5 h-4.5" dark />
                   </div>
-                  <div className="text-sm font-semibold text-slate-800">{gt.label}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{gt.example}</div>
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{gt.label}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{gt.example}</div>
                 </button>
               ))}
             </div>
@@ -318,7 +318,7 @@ function GoalModal({ goal, onClose, onSaved }) {
             <div className="space-y-4">
               {selectedType && !isEditing && (
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setStep(1)} className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 transition">
+                  <button onClick={() => setStep(1)} className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1 transition">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                     </svg>
@@ -332,25 +332,25 @@ function GoalModal({ goal, onClose, onSaved }) {
               )}
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Nome da meta</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Nome da meta</label>
                 <input
                   type="text"
                   placeholder={selectedType?.example || "Ex: Economizar R$ 1.000"}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 dark:text-slate-100"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   {type === "save" ? "Meta de economia (R$)" : "Limite (R$)"}
                 </label>
                 <input
                   type="number" min="1" step="0.01" placeholder="0,00"
                   value={targetAmount}
                   onChange={(e) => setTargetAmount(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 dark:text-slate-100"
                 />
                 {monthlyNeeded && monthlyNeeded > 0 && (
                   <p className="text-xs text-primary-600 mt-1.5 flex items-center gap-1">
@@ -363,11 +363,11 @@ function GoalModal({ goal, onClose, onSaved }) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Forma de pagamento</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Forma de pagamento</label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 dark:text-slate-100"
                 >
                   {PAYMENT_METHODS.map((m) => (
                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -377,11 +377,11 @@ function GoalModal({ goal, onClose, onSaved }) {
 
               {(type === "control" || type === "reduce") && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">Categoria (opcional)</label>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Categoria (opcional)</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                    className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 dark:text-slate-100"
                   >
                     <option value="">Todas as categorias</option>
                     {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -390,7 +390,7 @@ function GoalModal({ goal, onClose, onSaved }) {
               )}
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">Período</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Período</label>
                 <div className="flex gap-2">
                   {[
                     { value: "weekly",  label: "Semanal"       },
@@ -403,7 +403,7 @@ function GoalModal({ goal, onClose, onSaved }) {
                       className={`flex-1 py-2 rounded-lg text-xs font-medium border transition ${
                         period === p.value
                           ? "bg-primary-600 text-white border-primary-600"
-                          : "border-slate-200 text-slate-600 hover:border-slate-300"
+                          : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"
                       }`}
                     >
                       {p.label}
@@ -415,14 +415,14 @@ function GoalModal({ goal, onClose, onSaved }) {
               {period === "custom" && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Início</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Início</label>
                     <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                      className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 dark:text-slate-100" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Término</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Término</label>
                     <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                      className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-slate-800 dark:text-slate-100" />
                   </div>
                 </div>
               )}
@@ -431,7 +431,7 @@ function GoalModal({ goal, onClose, onSaved }) {
                 <button
                   type="button"
                   onClick={() => setIsRecurring(v => !v)}
-                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${isRecurring ? "bg-primary-600 border-primary-600" : "bg-white border-slate-300"}`}
+                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${isRecurring ? "bg-primary-600 border-primary-600" : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"}`}
                 >
                   {isRecurring && (
                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
@@ -439,7 +439,7 @@ function GoalModal({ goal, onClose, onSaved }) {
                     </svg>
                   )}
                 </button>
-                <span className="text-sm text-slate-600">Renovar automaticamente</span>
+                <span className="text-sm text-slate-600 dark:text-slate-400">Renovar automaticamente</span>
               </label>
 
               {error && (
@@ -494,11 +494,11 @@ function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
     : null;
 
   return (
-    <div className={`bg-white rounded-xl border overflow-hidden transition-all ${
-      isOver ? "border-red-200" : isWarn ? "border-amber-200" : isDone ? "border-emerald-200" : "border-slate-200"
+    <div className={`bg-white dark:bg-slate-800 rounded-xl border overflow-hidden transition-all ${
+      isOver ? "border-red-200" : isWarn ? "border-amber-200" : isDone ? "border-emerald-200" : "border-slate-200 dark:border-slate-700"
     }`}>
       {/* Progress accent bar on top */}
-      <div className="h-1 bg-slate-100">
+      <div className="h-1 bg-slate-100 dark:bg-slate-700">
         <div
           className={`h-full transition-all duration-700 ${barColor}`}
           style={{ width: `${pct}%` }}
@@ -522,24 +522,24 @@ function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-4">
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className={`w-9 h-9 rounded-xl ${gt?.color || "bg-slate-100"} flex items-center justify-center flex-shrink-0`}>
+            <div className={`w-9 h-9 rounded-xl ${gt?.color || "bg-slate-100 dark:bg-slate-700"} flex items-center justify-center flex-shrink-0`}>
               {gt && <GoalTypeIcon icon={gt.icon} className="w-4.5 h-4.5" dark />}
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-slate-800 text-sm truncate">{goal.title}</p>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate">{goal.title}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                 {PAYMENT_METHODS.find((m) => m.value === (goal.payment_method || ""))?.label || "Todos os meios"}
                 {goal.category && ` · ${goal.category}`}
               </p>
             </div>
           </div>
           <div className="flex gap-1 flex-shrink-0">
-            <button onClick={() => onEdit(goal)} className="p-1.5 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
+            <button onClick={() => onEdit(goal)} className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </button>
-            <button onClick={() => onDelete(goal.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+            <button onClick={() => onDelete(goal.id)} className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -548,18 +548,18 @@ function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
         </div>
 
         {/* Amounts */}
-        <div className="flex items-end justify-between mb-2">
-          <div>
-            <span className="text-xl font-bold text-slate-800">{fmtCurrency(current)}</span>
-            <span className="text-xs text-slate-400 ml-1.5">de {fmtCurrency(goal.target_amount)}</span>
+        <div className="flex items-end justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <span className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-200">{fmtCurrency(current)}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 ml-1.5">de {fmtCurrency(goal.target_amount)}</span>
           </div>
-          <span className={`text-sm font-semibold ${
-            isOver ? "text-red-500" : isWarn ? "text-amber-500" : isDone ? "text-emerald-600" : "text-slate-600"
+          <span className={`text-sm font-semibold flex-shrink-0 ${
+            isOver ? "text-red-500" : isWarn ? "text-amber-500" : isDone ? "text-emerald-600" : "text-slate-600 dark:text-slate-400"
           }`}>{pct}%</span>
         </div>
 
         {/* Progress bar */}
-        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-3">
+        <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-3">
           <div
             className={`h-full rounded-full transition-all duration-700 ${barColor}`}
             style={{ width: `${pct}%` }}
@@ -568,7 +568,7 @@ function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
 
         {/* Footer */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -664,8 +664,8 @@ export default function Goals() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">Metas financeiras</h1>
-          <p className="text-sm text-slate-500">Acompanhe seus objetivos e mantenha o controle</p>
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Metas financeiras</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Acompanhe seus objetivos e mantenha o controle</p>
         </div>
         <button
           onClick={() => setModal({})}
@@ -680,18 +680,20 @@ export default function Goals() {
 
       {/* Summary — só aparece se há metas */}
       {goals.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
-            <p className="text-xs text-slate-400 mb-0.5">Metas ativas</p>
-            <p className="text-xl font-bold text-slate-800">{goals.length}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3.5 flex items-center justify-between sm:block">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-0 sm:mb-0.5">Metas ativas</p>
+            <p className="text-xl font-bold text-slate-800 dark:text-slate-100">{goals.length}</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
-            <p className="text-xs text-slate-400 mb-0.5">Total poupado</p>
-            <p className="text-xl font-bold text-primary-600 truncate">{fmtCurrency(totalSaved)}</p>
-            {totalTarget > 0 && <p className="text-xs text-slate-400 mt-0.5">de {fmtCurrency(totalTarget)}</p>}
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3.5 flex items-center justify-between sm:block">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-0 sm:mb-0.5">Total poupado</p>
+            <div>
+              <p className="text-xl font-bold text-primary-600">{fmtCurrency(totalSaved)}</p>
+              {totalTarget > 0 && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 hidden sm:block">de {fmtCurrency(totalTarget)}</p>}
+            </div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 px-4 py-3.5">
-            <p className="text-xs text-slate-400 mb-0.5">Concluídas</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3.5 flex items-center justify-between sm:block">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-0 sm:mb-0.5">Concluídas</p>
             <p className="text-xl font-bold text-emerald-600">{doneCount}</p>
           </div>
         </div>
@@ -726,12 +728,12 @@ export default function Goals() {
 
       {/* Metas */}
       {goals.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
             <img src={iconBag} alt="" className="w-8 h-8" style={{ filter: "brightness(0) saturate(100%) opacity(0.3)" }} />
           </div>
-          <h3 className="text-base font-semibold text-slate-700 mb-1">Nenhuma meta criada</h3>
-          <p className="text-sm text-slate-400 max-w-xs mx-auto mb-5">
+          <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">Nenhuma meta criada</h3>
+          <p className="text-sm text-slate-400 dark:text-slate-500 max-w-xs mx-auto mb-5">
             Defina objetivos financeiros e acompanhe seu progresso mês a mês.
           </p>
           <button
@@ -777,16 +779,16 @@ export default function Goals() {
       {/* Modal deletar */}
       {deleteId && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
-          <div className="bg-white p-6 rounded-xl w-full max-w-sm mx-4 text-center border border-slate-200 shadow-lg">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-full max-w-sm mx-4 text-center border border-slate-200 dark:border-slate-700 shadow-lg">
             <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-3">
               <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </div>
-            <h2 className="text-base font-semibold text-slate-800 mb-1">Excluir meta</h2>
-            <p className="text-sm text-slate-500 mb-5">Esta ação não pode ser desfeita.</p>
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">Excluir meta</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Esta ação não pode ser desfeita.</p>
             <div className="flex justify-center gap-3">
-              <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg border border-slate-200 transition">
+              <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition">
                 Cancelar
               </button>
               <button onClick={handleDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">

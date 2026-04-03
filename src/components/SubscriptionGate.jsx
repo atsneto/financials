@@ -36,8 +36,8 @@ export default function SubscriptionGate({ children }) {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary-500 border-slate-200" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary-500 border-slate-200 dark:border-slate-700" />
       </div>
     );
   }

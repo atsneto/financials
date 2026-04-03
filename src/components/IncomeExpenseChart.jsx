@@ -8,8 +8,11 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { useTheme } from "../context/ThemeContext";
 
 export default function IncomeExpenseChart({ transactions }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const months = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
     "Jul", "Ago", "Set", "Out", "Nov", "Dez",
@@ -38,16 +41,16 @@ export default function IncomeExpenseChart({ transactions }) {
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-3">
-          <p className="text-sm font-medium text-slate-700 mb-1">{payload[0].payload.month}</p>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-3">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{payload[0].payload.month}</p>
           {payload.map((entry, index) => (
             <div key={index} className="flex items-center gap-2 text-xs">
               <div 
                 className="w-2.5 h-2.5 rounded-full" 
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-slate-500">{entry.name}:</span>
-              <span className="font-medium text-slate-800">
+              <span className="text-slate-500 dark:text-slate-400">{entry.name}:</span>
+              <span className="font-medium text-slate-800 dark:text-slate-200">
                 R$ {Number(entry.value).toFixed(2)}
               </span>
             </div>
@@ -65,20 +68,20 @@ export default function IncomeExpenseChart({ transactions }) {
           data={data} 
           margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
+          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#1F2A3D" : "#e2e8f0"} opacity={0.5} />
           <XAxis 
             dataKey="month" 
             interval={0} 
-            tick={{ fontSize: 11, fill: '#64748b' }} 
+            tick={{ fontSize: 11, fill: isDark ? '#64748b' : '#64748b' }} 
             angle={-20} 
             textAnchor='end'
             height={60}
           />
           <YAxis 
-            tick={{ fontSize: 11, fill: '#64748b' }}
+            tick={{ fontSize: 11, fill: isDark ? '#64748b' : '#64748b' }}
             tickFormatter={(value) => `R$ ${value}`}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0, 0, 0, 0.03)' }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)' }} />
           <Legend 
             wrapperStyle={{ paddingTop: '10px' }}
             iconType="circle"

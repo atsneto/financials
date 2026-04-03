@@ -173,18 +173,18 @@ export default function ImportCSVNubank() {
   return (
     <div className="space-y-6">
       <main className="flex justify-center items-center px-6 py-16">
-        <div className="bg-white rounded-xl border border-slate-200 w-full max-w-md p-8">
-          <h2 className="text-xl font-semibold mb-2 text-center text-slate-800">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-8">
+          <h2 className="text-xl font-semibold mb-2 text-center text-slate-800 dark:text-slate-200">
             Importar CSV do Nubank
           </h2>
 
-          <p className="text-slate-500 text-center mb-6 text-sm">
+          <p className="text-slate-500 dark:text-slate-400 text-center mb-6 text-sm">
             O merchant será salvo separado automaticamente
           </p>
 
-          <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-6 cursor-pointer hover:border-primary-400 transition">
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-6 cursor-pointer hover:border-primary-400 transition">
             <span className="text-4xl mb-2">📄</span>
-            <span className="text-slate-500 text-sm">
+            <span className="text-slate-500 dark:text-slate-400 text-sm">
               {file ? file.name : "Clique para selecionar o arquivo CSV"}
             </span>
 
@@ -205,7 +205,7 @@ export default function ImportCSVNubank() {
           </button>
 
           {message && (
-            <p className="mt-4 text-center text-sm text-slate-600">
+            <p className="mt-4 text-center text-sm text-slate-600 dark:text-slate-400">
               {message}
             </p>
           )}

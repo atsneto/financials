@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import iconCreditCard from "../svg/credit-card.svg";
+import { getBank } from "../utils/banks";
 import DatePicker, { registerLocale } from "react-datepicker";
 import ptBR from "date-fns/locale/pt-BR";
 import "react-datepicker/dist/react-datepicker.css";
@@ -61,7 +63,7 @@ export default function Profile() {
         supabase.from("transactions").select("type, amount").eq("user_id", user.id).gte("created_at", monthStart).lte("created_at", monthEnd),
         supabase.from("investments").select("amount").eq("user_id", user.id),
         supabase.from("financial_profile").select("monthly_income, spending_limit").eq("user_id", user.id).maybeSingle(),
-        supabase.from("credit_cards").select("id, name, last_four").eq("user_id", user.id).order("created_at"),
+        supabase.from("credit_cards").select("id, name, last_four, bank_id").eq("user_id", user.id).order("created_at"),
       ]);
 
       if (profileData) {
@@ -122,7 +124,7 @@ export default function Profile() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <p className="text-slate-500 text-sm">Carregando perfil...</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">Carregando perfil...</p>
       </div>
     );
   }
@@ -147,15 +149,15 @@ export default function Profile() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="bg-white rounded-xl border border-slate-200 p-6"
+        className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6"
       >
         <div className="flex items-center gap-5 mb-6">
           <div className="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0">
             <span className="text-2xl font-bold text-white">{initial}</span>
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">{form.name || "Sem nome"}</h1>
-            <p className="text-sm text-slate-400">
+            <h1 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{form.name || "Sem nome"}</h1>
+            <p className="text-sm text-slate-400 dark:text-slate-500">
               {form.birth_date
                 ? `Nascimento: ${new Date(...form.birth_date.split("-").map((v, i) => i === 1 ? Number(v) - 1 : Number(v))).toLocaleDateString("pt-BR")}`
                 : "Data de nascimento não informada"}
@@ -187,7 +189,7 @@ export default function Profile() {
             {saving ? "Salvando..." : "Salvar alterações"}
           </button>
           {hasChanges && (
-            <button onClick={handleCancel} className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition">
+            <button onClick={handleCancel} className="px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition">
               Cancelar
             </button>
           )}
@@ -200,21 +202,21 @@ export default function Profile() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.08 }}
       >
-        <h2 className="text-sm font-semibold text-slate-700 mb-3">Resumo financeiro do mês</h2>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Resumo financeiro do mês</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-xs text-slate-500 mb-1">Saldo este mês</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Saldo este mês</p>
             <p className={`text-xl font-bold ${monthBalance !== null && monthBalance < 0 ? "text-red-500" : "text-emerald-600"}`}>
               {monthBalance !== null ? fmt(monthBalance) : "—"}
             </p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-xs text-slate-500 mb-1">Total investido</p>
-            <p className="text-xl font-bold text-slate-800">{totalInvested !== null ? fmt(totalInvested) : "—"}</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total investido</p>
+            <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{totalInvested !== null ? fmt(totalInvested) : "—"}</p>
           </div>
           {healthLabel && (
             <div className={`rounded-xl border p-4 ${healthLabel.bg} ${healthLabel.border}`}>
-              <p className="text-xs text-slate-500 mb-1">Saúde financeira</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Saúde financeira</p>
               <p className={`text-xl font-bold ${healthLabel.color}`}>{healthLabel.text}</p>
               <p className={`text-xs mt-0.5 ${healthLabel.color}`}>
                 {savingsRate >= 0 ? `Poupando ${savingsRate.toFixed(0)}% da renda` : `Saldo negativo este mês`}
@@ -233,7 +235,7 @@ export default function Profile() {
         transition={{ duration: 0.35, delay: 0.17 }}
       >
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-700">Meus cartões</h2>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Meus cartões</h2>
           <button
             onClick={() => navigate("/settings")}
             className="text-xs text-primary-600 hover:text-primary-700 transition"
@@ -242,8 +244,8 @@ export default function Profile() {
           </button>
         </div>
         {cards.length === 0 ? (
-          <div className="bg-white rounded-xl border border-dashed border-slate-200 p-5 text-center">
-            <p className="text-sm text-slate-400 mb-2">Nenhum cartão cadastrado</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 p-5 text-center">
+            <p className="text-sm text-slate-400 dark:text-slate-500 mb-2">Nenhum cartão cadastrado</p>
             <button
               onClick={() => navigate("/settings")}
               className="text-xs text-primary-600 font-medium hover:text-primary-700 transition"
@@ -253,21 +255,28 @@ export default function Profile() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {cards.map(card => (
-              <div key={card.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
+            {cards.map(card => {
+              const bank = getBank(card.bank_id);
+              return (
+              <div key={card.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+                {bank ? (
+                  <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 dark:border-slate-600 flex items-center justify-center flex-shrink-0 p-1.5">
+                    <img src={bank.logo} alt={bank.label} className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                    <img src={iconCreditCard} alt="" className="w-5 h-5" style={{ filter: "brightness(0) saturate(100%) invert(36%) sepia(83%) saturate(2139%) hue-rotate(248deg) brightness(96%) contrast(97%)" }} />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{card.name}</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{card.name}</p>
                   {card.last_four && (
-                    <p className="text-xs text-slate-400">•••• {card.last_four}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">•••• {card.last_four}</p>
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </motion.div>
@@ -277,10 +286,10 @@ export default function Profile() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.26 }}
-        className="bg-white rounded-xl border border-red-200 p-6"
+        className="bg-white dark:bg-slate-800 rounded-xl border border-red-200 p-6"
       >
         <h2 className="text-sm font-semibold text-red-600 mb-1">Zona de perigo</h2>
-        <p className="text-xs text-slate-500 mb-4">Ao excluir sua conta, todos os seus dados serão removidos permanentemente. Essa ação não pode ser desfeita.</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Ao excluir sua conta, todos os seus dados serão removidos permanentemente. Essa ação não pode ser desfeita.</p>
         <button
           onClick={() => setShowDeleteConfirm(true)}
           className="px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm hover:bg-red-50 transition"
@@ -293,25 +302,25 @@ export default function Profile() {
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }} />
-          <div className="relative bg-white rounded-xl w-full max-w-md p-6 shadow-lg border border-slate-200 mx-4">
-            <h3 className="text-base font-semibold text-slate-800 mb-2">Excluir conta</h3>
-            <p className="text-sm text-slate-500 mb-4">
+          <div className="relative bg-white dark:bg-slate-800 rounded-xl w-full max-w-md p-6 shadow-lg border border-slate-200 dark:border-slate-700 mx-4">
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-2">Excluir conta</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Esta ação é <span className="font-semibold text-red-600">irreversível</span>. Todos os seus dados serão deletados permanentemente.
             </p>
-            <p className="text-sm text-slate-600 mb-2">
-              Digite <span className="font-mono font-semibold text-slate-800">EXCLUIR</span> para confirmar:
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+              Digite <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">EXCLUIR</span> para confirmar:
             </p>
             <input
               type="text"
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder="EXCLUIR"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent mb-5"
+              className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent mb-5"
             />
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-50 transition"
+                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition"
               >
                 Cancelar
               </button>
@@ -333,12 +342,12 @@ export default function Profile() {
 function FieldInput({ label, value, onChange }) {
   return (
     <div className="flex flex-col">
-      <label className="text-sm text-slate-500 mb-1">{label}</label>
+      <label className="text-sm text-slate-500 dark:text-slate-400 mb-1">{label}</label>
       <input
         type="text"
         value={value}
         onChange={onChange}
-        className="border border-slate-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        className="border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
       />
     </div>
   );
@@ -348,7 +357,7 @@ function DateInput({ label, value, onChange }) {
   const parsedDate = parseYYYYMMDDToDateLocal(value);
   return (
     <div className="flex flex-col">
-      <label className="text-sm text-slate-500 mb-1">{label}</label>
+      <label className="text-sm text-slate-500 dark:text-slate-400 mb-1">{label}</label>
       <DatePicker
         locale="pt-BR"
         selected={parsedDate}
@@ -356,7 +365,7 @@ function DateInput({ label, value, onChange }) {
         dateFormat="dd/MM/yyyy"
         placeholderText="Selecione a data"
         maxDate={new Date()}
-        className="border border-slate-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent w-full"
+        className="border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent w-full"
       />
     </div>
   );

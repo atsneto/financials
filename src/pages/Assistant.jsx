@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import iconBot from "../svg/bot.svg";
+import iconArrowUp from "../svg/arrow-up.svg";
 
 export default function Assistant() {
   const [messages, setMessages] = useState([
@@ -170,9 +172,9 @@ export default function Assistant() {
 
   return (
     <div className="flex flex-col animate-fade-in" style={{ height: "calc(100vh - 64px)" }}>
-      <div className="px-4 py-4 border-b border-slate-100 flex-shrink-0">
-        <h1 className="text-xl font-semibold text-slate-800">Assistente Financeiro</h1>
-        <p className="text-sm text-slate-500">Pergunte sobre seus gastos, metas e investimentos</p>
+      <div className="px-4 py-4 border-b border-slate-100 dark:border-slate-700 flex-shrink-0">
+        <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-200">Assistente Financeiro</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Pergunte sobre seus gastos, metas e investimentos</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -180,15 +182,13 @@ export default function Assistant() {
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             {msg.role === "assistant" && (
               <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 mr-2 mt-1">
-                <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2" />
-                </svg>
+                <img src={iconBot} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%) invert(36%) sepia(83%) saturate(2139%) hue-rotate(248deg) brightness(96%) contrast(97%)" }} />
               </div>
             )}
             <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
               msg.role === "user"
                 ? "bg-primary-600 text-white rounded-br-sm"
-                : "bg-white border border-slate-200 text-slate-700 rounded-bl-sm shadow-sm"
+                : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-bl-sm shadow-sm"
             }`}>
               {renderText(msg.text)}
             </div>
@@ -198,15 +198,13 @@ export default function Assistant() {
         {isTyping && (
           <div className="flex justify-start items-center gap-2">
             <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2" />
-              </svg>
+              <img src={iconBot} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%) invert(36%) sepia(83%) saturate(2139%) hue-rotate(248deg) brightness(96%) contrast(97%)" }} />
             </div>
-            <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm">
               <div className="flex gap-1 items-center h-4">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           </div>
@@ -214,13 +212,13 @@ export default function Assistant() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex-shrink-0 border-t border-slate-100">
+      <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700">
         <div className="px-4 pt-3 pb-2 flex gap-2 overflow-x-auto">
           {quickPrompts.map(p => (
             <button
               key={p}
               onClick={() => sendMessage(p)}
-              className="flex-shrink-0 text-xs border border-slate-200 text-slate-600 px-3 py-1.5 rounded-full hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-colors whitespace-nowrap"
+              className="flex-shrink-0 text-xs border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-full hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 hover:text-primary-700 dark:hover:text-primary-300 transition-colors whitespace-nowrap"
             >
               {p}
             </button>
@@ -233,7 +231,7 @@ export default function Assistant() {
             onKeyDown={handleKeyDown}
             placeholder="Digite sua pergunta..."
             rows={1}
-            className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="flex-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-xl px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             style={{ maxHeight: "100px" }}
           />
           <button
@@ -246,7 +244,7 @@ export default function Assistant() {
             </svg>
           </button>
         </div>
-        <p className="text-xs text-slate-400 pb-2 text-center">Enter para enviar · Shift+Enter para nova linha</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 pb-2 text-center">Enter para enviar · Shift+Enter para nova linha</p>
       </div>
     </div>
   );

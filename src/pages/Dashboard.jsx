@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { getEffectiveBillingDate } from "../utils/billing";
+import { useTheme } from "../context/ThemeContext";
 
 import {
   ResponsiveContainer,
@@ -15,6 +16,12 @@ import {
   Bar,
 } from "recharts";
 
+import iconInfo from "../svg/info.svg";
+import iconClose from "../svg/close.svg";
+import iconDanger from "../svg/danger.svg";
+import iconCreditCard from "../svg/credit-card.svg";
+import iconShoppingCart from "../svg/shopping-cart.svg";
+
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [prevMonthTransactions, setPrevMonthTransactions] = useState([]);
@@ -26,6 +33,8 @@ export default function Dashboard() {
 
   const profileRef = useRef(null);
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -115,11 +124,11 @@ export default function Dashboard() {
   // =====================
   const savingsRate = income > 0 ? ((income - expense) / income) * 100 : 0;
   const healthScore =
-    savingsRate >= 30 ? { score: 92, label: "Excelente", bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", bar: "bg-emerald-500" }
-    : savingsRate >= 20 ? { score: 78, label: "Muito bom", bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", bar: "bg-emerald-400" }
-    : savingsRate >= 10 ? { score: 60, label: "Bom", bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", bar: "bg-blue-500" }
-    : savingsRate >= 0 ? { score: 40, label: "Regular", bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", bar: "bg-amber-400" }
-    : { score: 18, label: "Atenção", bg: "bg-red-50", border: "border-red-200", text: "text-red-700", bar: "bg-red-500" };
+    savingsRate >= 30 ? { score: 92, label: "Excelente", bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-200 dark:border-emerald-800/50", text: "text-emerald-700 dark:text-emerald-400", bar: "bg-emerald-500" }
+    : savingsRate >= 20 ? { score: 78, label: "Muito bom", bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-200 dark:border-emerald-800/50", text: "text-emerald-700 dark:text-emerald-400", bar: "bg-emerald-400" }
+    : savingsRate >= 10 ? { score: 60, label: "Bom", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800/50", text: "text-blue-700 dark:text-blue-400", bar: "bg-blue-500" }
+    : savingsRate >= 0 ? { score: 40, label: "Regular", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800/50", text: "text-amber-700 dark:text-amber-400", bar: "bg-amber-400" }
+    : { score: 18, label: "Atenção", bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-800/50", text: "text-red-700 dark:text-red-400", bar: "bg-red-500" };
 
   // =====================
   // PROJEÇÃO DE SALDO
@@ -186,9 +195,9 @@ export default function Dashboard() {
   const ChartTooltip = ({ active, payload }) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-white border border-slate-200 rounded-lg shadow-soft-md px-3 py-2 text-xs">
-        <p className="font-medium text-slate-700">Dia {payload[0].payload.day}</p>
-        <p className="text-slate-500 mt-0.5">Acumulado: R$ {Number(payload[0].value).toFixed(2)}</p>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-soft-md px-3 py-2 text-xs">
+        <p className="font-medium text-slate-700 dark:text-slate-300">Dia {payload[0].payload.day}</p>
+        <p className="text-slate-500 dark:text-slate-400 mt-0.5">Acumulado: R$ {Number(payload[0].value).toFixed(2)}</p>
       </div>
     );
   };
@@ -196,8 +205,8 @@ export default function Dashboard() {
   const CompTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm px-3 py-2 text-xs">
-        <p className="font-medium text-slate-700 mb-1">{label}</p>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm px-3 py-2 text-xs">
+        <p className="font-medium text-slate-700 dark:text-slate-300 mb-1">{label}</p>
         {payload.map((e, i) => (
           <p key={i} style={{ color: e.color }}>{e.name}: R$ {Number(e.value).toFixed(2)}</p>
         ))}
@@ -225,26 +234,22 @@ export default function Dashboard() {
       {/* HEADER + TIP inline (desktop) */}
       <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-3">
         <div className="text-center sm:text-left">
-          <h1 className="text-xl font-semibold text-slate-800">{greeting}, {firstName}!</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{subtitle}</p>
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-200">{greeting}, {firstName}!</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{subtitle}</p>
         </div>
         {showTip && activeTips.length > 0 && (
           <div
-            className="hidden sm:flex items-center gap-2 bg-primary-50 border border-primary-200 rounded-xl px-3 py-2 max-w-sm flex-shrink-0"
+            className="hidden sm:flex items-center gap-2 bg-primary-50 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800/50 rounded-xl px-3 py-2 max-w-sm flex-shrink-0"
             onMouseEnter={() => setTipPaused(true)}
             onMouseLeave={() => setTipPaused(false)}
           >
-            <svg className="w-3.5 h-3.5 text-primary-600 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-xs text-primary-700 min-w-0 line-clamp-2">
+            <img src={iconInfo} alt="" className="w-3.5 h-3.5 flex-shrink-0" style={{ filter: "brightness(0) saturate(100%)" }} />
+            <p className="text-xs text-primary-700 dark:text-primary-300 min-w-0 line-clamp-2">
               <span className="font-medium">{activeTips[tipIndex % activeTips.length]?.title}:</span>{" "}
-              <span className="text-primary-600">{activeTips[tipIndex % activeTips.length]?.message}</span>
+              <span className="text-primary-600 dark:text-primary-400">{activeTips[tipIndex % activeTips.length]?.message}</span>
             </p>
-            <button onClick={() => setShowTip(false)} className="text-slate-400 hover:text-slate-600 flex-shrink-0 ml-1">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <button onClick={() => setShowTip(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 ml-1">
+              <img src={iconClose} alt="" className="w-3 h-3 opacity-60" />
             </button>
           </div>
         )}
@@ -255,11 +260,9 @@ export default function Dashboard() {
         <section className="space-y-1.5">
           {alerts.map((alert, i) => (
             <div key={i} className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border text-xs ${
-              alert.type === "danger" ? "bg-red-50 border-red-200 text-red-700" : "bg-amber-50 border-amber-200 text-amber-700"
+              alert.type === "danger" ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300"
             }`}>
-              <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+              <img src={iconDanger} alt="" className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ filter: "brightness(0) saturate(100%)" }} />
               <span>{alert.msg}</span>
             </div>
           ))}
@@ -269,23 +272,19 @@ export default function Dashboard() {
       {/* TIP (mobile only) */}
       {showTip && activeTips.length > 0 && (
         <section
-          className="sm:hidden bg-primary-50 border border-primary-200 rounded-xl px-3 py-2.5 flex items-start justify-between gap-3"
+          className="sm:hidden bg-primary-50 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800/50 rounded-xl px-3 py-2.5 flex items-start justify-between gap-3"
           onMouseEnter={() => setTipPaused(true)}
           onMouseLeave={() => setTipPaused(false)}
         >
           <div className="flex items-start gap-2 min-w-0">
-            <svg className="w-3.5 h-3.5 text-primary-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-xs text-primary-700 min-w-0">
+            <img src={iconInfo} alt="" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ filter: "brightness(0) saturate(100%)" }} />
+            <p className="text-xs text-primary-700 dark:text-primary-300 min-w-0">
               <span className="font-medium">{activeTips[tipIndex % activeTips.length]?.title}:</span>{" "}
-              <span className="text-primary-600">{activeTips[tipIndex % activeTips.length]?.message}</span>
+              <span className="text-primary-600 dark:text-primary-400">{activeTips[tipIndex % activeTips.length]?.message}</span>
             </p>
           </div>
-          <button onClick={() => setShowTip(false)} className="text-slate-400 hover:text-slate-600 flex-shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button onClick={() => setShowTip(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0">
+            <img src={iconClose} alt="" className="w-3.5 h-3.5 opacity-60" />
           </button>
         </section>
       )}
@@ -293,52 +292,48 @@ export default function Dashboard() {
       {/* CARDS DE SALDO POR ORIGEM */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Conta Corrente */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-              <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%)" }} />
             </div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Conta Corrente</p>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Conta Corrente</p>
           </div>
           <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${ccBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
             R$ {ccBalance.toFixed(2)}
           </p>
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Entradas (Déb/PIX)</span>
+              <span className="text-slate-400 dark:text-slate-500">Entradas (Déb/PIX)</span>
               <span className="text-emerald-600 font-medium">+R$ {ccIncome.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Saídas</span>
+              <span className="text-slate-400 dark:text-slate-500">Saídas</span>
               <span className="text-red-500 font-medium">-R$ {ccExpense.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* Cartão de Crédito */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
+            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%)" }} />
             </div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Cartão de Crédito</p>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cartão de Crédito</p>
           </div>
-          <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${creditCardBill > 0 ? "text-red-500" : "text-slate-400"}`}>
+          <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${creditCardBill > 0 ? "text-red-500" : "text-slate-400 dark:text-slate-500"}`}>
             R$ {creditCardBill.toFixed(2)}
           </p>
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Fatura do mês</span>
+              <span className="text-slate-400 dark:text-slate-500">Fatura do mês</span>
               <span className="text-red-500 font-medium">-R$ {creditCardBill.toFixed(2)}</span>
             </div>
             {income > 0 && (
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">% da renda</span>
-                <span className={`font-medium ${creditCardBill / income > 0.5 ? "text-red-500" : "text-slate-600"}`}>
+                <span className="text-slate-400 dark:text-slate-500">% da renda</span>
+                <span className={`font-medium ${creditCardBill / income > 0.5 ? "text-red-500" : "text-slate-600 dark:text-slate-300"}`}>
                   {income > 0 ? `${((creditCardBill / income) * 100).toFixed(0)}%` : "—"}
                 </span>
               </div>
@@ -347,17 +342,15 @@ export default function Dashboard() {
         </div>
 
         {/* Vale Alimentação */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
-              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
+            <div className="w-7 h-7 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+              <img src={iconShoppingCart} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%)" }} />
             </div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Vale Alimentação</p>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vale Alimentação</p>
           </div>
           {vaIncome === 0 && vaExpense === 0 ? (
-            <p className="text-sm text-slate-400 mt-2 text-center sm:text-left">Nenhuma movimentação com VA este mês.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-2 text-center sm:text-left">Nenhuma movimentação com VA este mês.</p>
           ) : (
             <>
               <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${vaBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
@@ -365,11 +358,11 @@ export default function Dashboard() {
               </p>
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Entradas</span>
+                  <span className="text-slate-400 dark:text-slate-500">Entradas</span>
                   <span className="text-emerald-600 font-medium">+R$ {vaIncome.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Saídas</span>
+                  <span className="text-slate-400 dark:text-slate-500">Saídas</span>
                   <span className="text-red-500 font-medium">-R$ {vaExpense.toFixed(2)}</span>
                 </div>
               </div>
@@ -384,25 +377,25 @@ export default function Dashboard() {
         <SummaryCard label="Despesas" value={expense} type="danger" />
 
         <div className={`rounded-xl border p-3 ${healthScore.bg} ${healthScore.border}`}>
-          <p className="text-xs text-slate-500 mb-2 text-center sm:text-left">Saúde Financeira</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 text-center sm:text-left">Saúde Financeira</p>
           <div className="flex items-baseline justify-center sm:justify-start gap-2 mb-2">
             <p className={`text-2xl font-bold ${healthScore.text}`}>{healthScore.score}</p>
             <p className={`text-xs font-semibold ${healthScore.text}`}>{healthScore.label}</p>
           </div>
-          <div className="w-full bg-white/60 rounded-full h-1.5">
+          <div className="w-full bg-white/60 dark:bg-slate-700/60 rounded-full h-1.5">
             <div className={`h-1.5 rounded-full transition-all duration-700 ${healthScore.bar}`} style={{ width: `${healthScore.score}%` }} />
           </div>
-          <p className="text-xs text-slate-500 mt-1.5 text-center sm:text-left">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 text-center sm:text-left">
             Poupança: <span className={`font-semibold ${healthScore.text}`}>{income > 0 ? `${savingsRate.toFixed(1)}%` : "—"}</span>
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-3">
-          <p className="text-xs text-slate-500 mb-2 text-center sm:text-left">Projeção fim do mês</p>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 text-center sm:text-left">Projeção fim do mês</p>
           <p className={`text-2xl font-bold mb-1 text-center sm:text-left ${projectedBalance >= 0 ? "text-emerald-600" : "text-red-500"}`}>
             R$ {projectedBalance.toFixed(2)}
           </p>
-          <p className="text-xs text-slate-400 text-center sm:text-left">R$ {dailyAvg.toFixed(2)}/dia</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center sm:text-left">R$ {dailyAvg.toFixed(2)}/dia</p>
           {income === 0 && <p className="text-xs text-amber-500 mt-1 text-center sm:text-left">Registre receitas</p>}
         </div>
       </section>
@@ -411,9 +404,9 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 lg:grid-cols-5 gap-3">
 
         {/* Evolução dos gastos - col-span-3 */}
-        <div className="lg:col-span-3 bg-white rounded-xl border border-slate-200 p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-0.5 text-center sm:text-left">Evolução dos gastos</h3>
-          <p className="text-xs text-slate-400 mb-3 text-center sm:text-left">Acumulado diário de despesas em {monthName}</p>
+        <div className="lg:col-span-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-0.5 text-center sm:text-left">Evolução dos gastos</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Acumulado diário de despesas em {monthName}</p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -423,11 +416,11 @@ export default function Dashboard() {
                     <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} interval={Math.floor(daysInMonth / 10)} />
-                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`} width={50} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#1F2A3D" : "#e2e8f0"} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: isDark ? "#64748b" : "#94a3b8" }} interval={Math.floor(daysInMonth / 10)} />
+                <YAxis tick={{ fontSize: 10, fill: isDark ? "#64748b" : "#94a3b8" }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`} width={50} />
                 <Tooltip content={<ChartTooltip />} />
-                <Area type="monotone" dataKey="total" stroke="#f87171" strokeWidth={2} fill="url(#colorGastos)" dot={false} activeDot={{ r: 4, fill: "#f87171", stroke: "#fff", strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="total" stroke="#f87171" strokeWidth={2} fill="url(#colorGastos)" dot={false} activeDot={{ r: 4, fill: "#f87171", stroke: isDark ? "#131825" : "#fff", strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -437,15 +430,15 @@ export default function Dashboard() {
         <div className="lg:col-span-2 flex flex-col gap-3">
 
           {/* Comparação mensal */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700 mb-0.5 text-center sm:text-left">Comparação mensal</h3>
-            <p className="text-xs text-slate-400 mb-3 text-center sm:text-left">Mês anterior vs atual</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-0.5 text-center sm:text-left">Comparação mensal</h3>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Mês anterior vs atual</p>
             <div className="h-36">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={comparisonData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`} width={50} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#1F2A3D" : "#e2e8f0"} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: isDark ? "#64748b" : "#94a3b8" }} />
+                  <YAxis tick={{ fontSize: 10, fill: isDark ? "#64748b" : "#94a3b8" }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`} width={50} />
                   <Tooltip content={<CompTooltip />} />
                   <Bar dataKey="receitas" name="Receitas" fill="#10b981" radius={[4,4,0,0]} maxBarSize={40} />
                   <Bar dataKey="gastos" name="Gastos" fill="#f87171" radius={[4,4,0,0]} maxBarSize={40} />
@@ -462,31 +455,31 @@ export default function Dashboard() {
           </div>
 
           {/* Top categorias */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex-1">
-            <h3 className="text-sm font-semibold text-slate-700 mb-0.5 text-center sm:text-left">Categorias com maior gasto</h3>
-            <p className="text-xs text-slate-400 mb-3 text-center sm:text-left">Top categorias do mês atual</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex-1">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-0.5 text-center sm:text-left">Categorias com maior gasto</h3>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Top categorias do mês atual</p>
             {topCategories.length > 0 ? (
               <div className="space-y-2.5">
                 {topCategories.map(([cat, val], i) => (
                   <div key={cat}>
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-slate-700 font-medium truncate">{cat}</span>
-                      <span className="text-xs text-slate-500 ml-2 flex-shrink-0">R$ {val.toFixed(2)}</span>
+                      <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate">{cat}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 ml-2 flex-shrink-0">R$ {val.toFixed(2)}</span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-1.5">
+                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
                       <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${(val / maxCatValue) * 100}%`, opacity: 1 - i * 0.15 }} />
                     </div>
                   </div>
                 ))}
                 {expense > 0 && (
-                  <p className="text-xs text-slate-400 pt-0.5">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 pt-0.5">
                     Maior categoria:{" "}
-                    <span className="font-medium text-slate-600">{((topCategories[0][1] / expense) * 100).toFixed(0)}%</span> dos gastos
+                    <span className="font-medium text-slate-600 dark:text-slate-300">{((topCategories[0][1] / expense) * 100).toFixed(0)}%</span> dos gastos
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-slate-400 text-center sm:text-left">Sem despesas categorizadas este mês.</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center sm:text-left">Sem despesas categorizadas este mês.</p>
             )}
           </div>
         </div>
@@ -503,17 +496,17 @@ function SummaryCard({ label, value, type = "default" }) {
     success: { text: "text-emerald-600", dot: "bg-emerald-500" },
     danger: { text: "text-red-500", dot: "bg-red-500" },
     info: { text: "text-blue-600", dot: "bg-blue-500" },
-    default: { text: "text-slate-800", dot: "bg-slate-400" },
+    default: { text: "text-slate-800 dark:text-slate-200", dot: "bg-slate-400 dark:bg-slate-500" },
   };
   const s = styles[type] || styles.default;
   const numeric = Number(value || 0);
   const isNeg = numeric < 0;
   const displayStyle = isNeg ? styles.danger : s;
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:border-slate-300 transition-colors">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
       <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
         <span className={`w-2 h-2 rounded-full ${displayStyle.dot}`} />
-        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</p>
       </div>
       <p className={`text-2xl font-semibold text-center sm:text-left ${displayStyle.text}`}>
         R$ {value.toFixed(2)}

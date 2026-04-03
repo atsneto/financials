@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "../supabaseClient";
 import Logo from "../components/Logo";
+import iconCheck from "../svg/check.svg";
+import iconArrowRight from "../svg/arrow-right.svg";
 
 export default function SubscribeSuccess() {
   const navigate = useNavigate();
@@ -41,7 +43,7 @@ export default function SubscribeSuccess() {
   }, [attempts, navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center px-6 py-16">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center px-6 py-16">
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -63,21 +65,19 @@ export default function SubscribeSuccess() {
           transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 15 }}
           className="w-20 h-20 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-6"
         >
-          <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+          <img src={iconCheck} alt="" className="w-10 h-10" style={{ filter: "brightness(0) saturate(100%) invert(62%) sepia(52%) saturate(596%) hue-rotate(108deg) brightness(96%) contrast(92%)" }} />
         </motion.div>
 
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
           Assinatura ativada!
         </h1>
-        <p className="text-slate-500 text-sm mb-8">
+        <p className="text-slate-500 dark:text-slate-400 text-sm mb-8">
           Bem-vindo ao Financials. Seu acesso completo está pronto.
         </p>
 
         {checking ? (
           <div className="flex flex-col items-center gap-3 mb-6">
-            <div className="flex items-center gap-2 text-sm text-slate-400">
+            <div className="flex items-center gap-2 text-sm text-slate-400 dark:text-slate-500">
               <svg className="animate-spin h-4 w-4 text-primary-500" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
@@ -94,9 +94,7 @@ export default function SubscribeSuccess() {
             className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 rounded-xl text-sm transition shadow-md shadow-primary-100 flex items-center justify-center gap-2"
           >
             Ir para o Dashboard
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
+            <img src={iconArrowRight} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
           </motion.button>
         )}
       </motion.div>

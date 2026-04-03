@@ -1,7 +1,19 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useJames } from "../context/AIContext";
-import jamesAvatar from "../icons/james.svg";
+import jamesAvatar from "../svg/bot.svg";
+import iconTrendingDown from "../svg/trending-down.svg";
+import iconDanger from "../svg/danger.svg";
+import iconDollar from "../svg/dollar.svg";
+import iconTrending from "../svg/trending.svg";
+import iconCreditCard from "../svg/credit-card.svg";
+import iconCheckO from "../svg/check-o.svg";
+import iconInfo from "../svg/info.svg";
+import iconTag from "../svg/tag.svg";
+import iconSync from "../svg/sync.svg";
+import iconSun from "../svg/sun.svg";
+import iconChevronRight from "../svg/chevron-right.svg";
+import iconInsights from "../svg/insights.svg";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -18,69 +30,69 @@ function fmtPct(n) {
 const TYPE_CONFIG = {
   reduce: {
     label: "Reduzir",
-    bg: "bg-red-50", border: "border-red-100",
-    iconBg: "bg-red-100", iconColor: "text-red-500", labelColor: "text-red-500",
-    valueBg: "bg-red-100 text-red-600",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-100 dark:border-red-800/50",
+    iconBg: "bg-red-100 dark:bg-red-900/40", iconColor: "text-red-500 dark:text-red-400", labelColor: "text-red-500 dark:text-red-400",
+    valueBg: "bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400",
+    icon: <img src={iconTrendingDown} alt="" className="w-5 h-5 icon-adaptive" />,
   },
   control: {
     label: "Controlar",
-    bg: "bg-amber-50", border: "border-amber-100",
-    iconBg: "bg-amber-100", iconColor: "text-amber-500", labelColor: "text-amber-500",
-    valueBg: "bg-amber-100 text-amber-600",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>,
+    bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-100 dark:border-amber-800/50",
+    iconBg: "bg-amber-100 dark:bg-amber-900/40", iconColor: "text-amber-500 dark:text-amber-400", labelColor: "text-amber-500 dark:text-amber-400",
+    valueBg: "bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400",
+    icon: <img src={iconDanger} alt="" className="w-5 h-5 icon-adaptive" />,
   },
   save: {
     label: "Economizar",
-    bg: "bg-blue-50", border: "border-blue-100",
-    iconBg: "bg-blue-100", iconColor: "text-blue-500", labelColor: "text-blue-500",
-    valueBg: "bg-blue-100 text-blue-600",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+    bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-100 dark:border-blue-800/50",
+    iconBg: "bg-blue-100 dark:bg-blue-900/40", iconColor: "text-blue-500 dark:text-blue-400", labelColor: "text-blue-500 dark:text-blue-400",
+    valueBg: "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400",
+    icon: <img src={iconDollar} alt="" className="w-5 h-5 icon-adaptive" />,
   },
   invest: {
     label: "Investir",
-    bg: "bg-violet-50", border: "border-violet-100",
-    iconBg: "bg-violet-100", iconColor: "text-violet-500", labelColor: "text-violet-500",
-    valueBg: "bg-violet-100 text-violet-600",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
+    bg: "bg-violet-50 dark:bg-violet-950/30", border: "border-violet-100 dark:border-violet-800/50",
+    iconBg: "bg-violet-100 dark:bg-violet-900/40", iconColor: "text-violet-500 dark:text-violet-400", labelColor: "text-violet-500 dark:text-violet-400",
+    valueBg: "bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400",
+    icon: <img src={iconTrending} alt="" className="w-5 h-5 icon-adaptive" />,
   },
   pay_debt: {
     label: "Quitar",
-    bg: "bg-orange-50", border: "border-orange-100",
-    iconBg: "bg-orange-100", iconColor: "text-orange-500", labelColor: "text-orange-500",
-    valueBg: "bg-orange-100 text-orange-600",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
+    bg: "bg-orange-50 dark:bg-orange-950/30", border: "border-orange-100 dark:border-orange-800/50",
+    iconBg: "bg-orange-100 dark:bg-orange-900/40", iconColor: "text-orange-500 dark:text-orange-400", labelColor: "text-orange-500 dark:text-orange-400",
+    valueBg: "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400",
+    icon: <img src={iconCreditCard} alt="" className="w-5 h-5 icon-adaptive" />,
   },
   positive: {
     label: "Parabéns",
-    bg: "bg-emerald-50", border: "border-emerald-100",
-    iconBg: "bg-emerald-100", iconColor: "text-emerald-500", labelColor: "text-emerald-500",
-    valueBg: "bg-emerald-100 text-emerald-600",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-100 dark:border-emerald-800/50",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/40", iconColor: "text-emerald-500 dark:text-emerald-400", labelColor: "text-emerald-500 dark:text-emerald-400",
+    valueBg: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400",
+    icon: <img src={iconCheckO} alt="" className="w-5 h-5 icon-adaptive" />,
   },
 };
 
 const ALERT_STYLES = {
-  high: { bg: "bg-red-50 border-red-200 text-red-700", icon: <svg className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg> },
-  medium: { bg: "bg-amber-50 border-amber-200 text-amber-700", icon: <svg className="w-4 h-4 flex-shrink-0 text-amber-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-  low: { bg: "bg-blue-50 border-blue-200 text-blue-700", icon: <svg className="w-4 h-4 flex-shrink-0 text-blue-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
+  high: { bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300", icon: <img src={iconDanger} alt="" className="w-4 h-4 flex-shrink-0 mt-0.5 icon-adaptive" /> },
+  medium: { bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-300", icon: <img src={iconInfo} alt="" className="w-4 h-4 flex-shrink-0 mt-0.5 icon-adaptive" /> },
+  low: { bg: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/50 text-blue-700 dark:text-blue-300", icon: <img src={iconInfo} alt="" className="w-4 h-4 flex-shrink-0 mt-0.5 icon-adaptive" /> },
 };
 
 const PAYMENT_CONFIG = {
   credit_card: {
     label: "Cartão de crédito",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
-    color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100",
+    icon: <img src={iconCreditCard} alt="" className="w-5 h-5 icon-adaptive" />,
+    color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-950/30", border: "border-violet-100 dark:border-violet-800/50",
   },
   debit_pix: {
     label: "Débito / PIX",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
-    color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100",
+    icon: <img src={iconDollar} alt="" className="w-5 h-5 icon-adaptive" />,
+    color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-100 dark:border-emerald-800/50",
   },
   meal_voucher: {
     label: "Vale alimentação",
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>,
-    color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100",
+    icon: <img src={iconTag} alt="" className="w-5 h-5 icon-adaptive" />,
+    color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-100 dark:border-amber-800/50",
   },
 };
 
@@ -107,14 +119,14 @@ export default function James() {
             <img src={jamesAvatar} alt="James" className="w-full h-full object-cover" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">James</h1>
-            <p className="text-xs text-slate-500 capitalize">{today}</p>
+            <h1 className="text-lg font-semibold text-slate-800 dark:text-slate-200">James</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{today}</p>
           </div>
         </div>
         <button
           onClick={refresh}
           disabled={status === "loading"}
-          className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition disabled:opacity-40"
+          className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-40"
           title="Atualizar"
         >
           <svg className={`w-4 h-4 ${status === "loading" ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -128,8 +140,8 @@ export default function James() {
 
       {/* Error */}
       {status === "error" && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
-          <p className="text-sm text-slate-500 mb-3">Não foi possível carregar a análise.</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-8 text-center">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Não foi possível carregar a análise.</p>
           <button onClick={refresh} className="text-sm text-violet-600 hover:text-violet-800 font-medium transition">
             Tentar novamente
           </button>
@@ -166,7 +178,7 @@ export default function James() {
           {/* Actions */}
           {data.actions?.length > 0 && (
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">O que fazer agora</p>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-1">O que fazer agora</p>
               {data.actions.map((action, i) => (
                 <ActionCard key={i} action={action} onNavigate={navigate} />
               ))}
@@ -176,8 +188,8 @@ export default function James() {
       )}
 
       {status === "done" && !data && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
-          <p className="text-sm text-slate-500">Nenhuma análise disponível no momento.</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-8 text-center">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Nenhuma análise disponível no momento.</p>
         </div>
       )}
     </div>
@@ -192,25 +204,21 @@ function DailySummaryCard({ stats, summary, onNavigate }) {
 
   return (
     <div
-      className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4 cursor-pointer hover:border-slate-200 transition"
+      className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-4 flex items-center gap-4 cursor-pointer hover:border-slate-200 dark:hover:border-slate-700 transition"
       onClick={() => onNavigate("/transactions")}
     >
-      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0">
-        <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m8.66-10h-1M4.34 12h-1m15.07-6.36l-.71.71M6.34 17.66l-.71.71m12.73 0l-.71-.71M6.34 6.34l-.71-.71" />
-        </svg>
+      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
+        <img src={iconSun} alt="" className="w-5 h-5 icon-adaptive opacity-50" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-slate-400 mb-0.5">Gasto hoje</p>
-        <p className="text-lg font-bold text-slate-800">{fmtCurrency(todaySpent)}</p>
-        <p className="text-xs text-slate-400">{todayCount} transaç{todayCount !== 1 ? "ões" : "ão"}</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Gasto hoje</p>
+        <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{fmtCurrency(todaySpent)}</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">{todayCount} transaç{todayCount !== 1 ? "ões" : "ão"}</p>
       </div>
       {summary && (
-        <p className="text-xs text-slate-500 max-w-[48%] text-right leading-relaxed hidden sm:block">{summary}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[48%] text-right leading-relaxed hidden sm:block">{summary}</p>
       )}
-      <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
+      <img src={iconChevronRight} alt="" className="w-4 h-4 icon-adaptive opacity-30 flex-shrink-0" />
     </div>
   );
 }
@@ -229,28 +237,28 @@ function MonthlyCard({ stats, insight }) {
   const monthName = new Date().toLocaleDateString("pt-BR", { month: "long" });
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-5 space-y-4">
       {/* Top row */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs text-slate-400 mb-1">Total gasto em {monthName}</p>
-          <p className="text-2xl font-bold text-slate-800">{fmtCurrency(totalExpense)}</p>
-          <p className="text-xs text-slate-400 mt-1">{fmtCurrency(totalIncome)} de receita · saldo {fmtCurrency(balance)}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-1">Total gasto em {monthName}</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">{fmtCurrency(totalExpense)}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{fmtCurrency(totalIncome)} de receita · saldo {fmtCurrency(balance)}</p>
         </div>
-        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap flex-shrink-0 ${isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap flex-shrink-0 ${isPositive ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400" : "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400"}`}>
           {fmtPct(vsLastMonth)} vs anterior
         </span>
       </div>
 
       {/* Savings rate bar */}
       <div>
-        <div className="flex justify-between text-xs text-slate-400 mb-1.5">
+        <div className="flex justify-between text-xs text-slate-400 dark:text-slate-500 mb-1.5">
           <span>Taxa de poupança</span>
           <span className={`font-medium ${savingsRate >= 20 ? "text-emerald-600" : savingsRate >= 10 ? "text-amber-600" : "text-red-500"}`}>
             {savingsRate.toFixed(1)}%
           </span>
         </div>
-        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${savingsRate >= 20 ? "bg-emerald-500" : savingsRate >= 10 ? "bg-amber-400" : "bg-red-400"}`}
             style={{ width: `${Math.min(savingsRate, 100)}%` }}
@@ -261,26 +269,24 @@ function MonthlyCard({ stats, insight }) {
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-3">
         {topCategory && (
-          <div className="bg-slate-50 rounded-xl px-3 py-2.5">
-            <p className="text-xs text-slate-400 mb-0.5">Maior gasto</p>
-            <p className="text-sm font-semibold text-slate-700">{topCategory}</p>
-            <p className="text-xs text-slate-500">{fmtCurrency(topCategoryAmount)}</p>
+          <div className="bg-slate-50 dark:bg-slate-900 rounded-xl px-3 py-2.5">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Maior gasto</p>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{topCategory}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{fmtCurrency(topCategoryAmount)}</p>
           </div>
         )}
-        <div className="bg-slate-50 rounded-xl px-3 py-2.5">
-          <p className="text-xs text-slate-400 mb-0.5">Projeção do mês</p>
-          <p className="text-sm font-semibold text-slate-700">{fmtCurrency(projectedMonthEnd)}</p>
-          <p className="text-xs text-slate-500">{daysLeft} dias restantes</p>
+        <div className="bg-slate-50 dark:bg-slate-900 rounded-xl px-3 py-2.5">
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Projeção do mês</p>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{fmtCurrency(projectedMonthEnd)}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{daysLeft} dias restantes</p>
         </div>
       </div>
 
       {/* AI insight */}
       {insight && (
-        <div className="border-t border-slate-100 pt-3 flex items-start gap-2">
-          <svg className="w-3.5 h-3.5 text-violet-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
-          </svg>
-          <p className="text-xs text-slate-500 leading-relaxed">{insight}</p>
+        <div className="border-t border-slate-100 dark:border-slate-700 pt-3 flex items-start gap-2">
+          <img src={iconInsights} alt="" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 icon-adaptive opacity-60" />
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{insight}</p>
         </div>
       )}
     </div>
@@ -303,19 +309,19 @@ function PaymentSection({ stats, tips }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">Meios de pagamento</p>
+      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-1">Meios de pagamento</p>
       <div className={`grid gap-3 ${methods.length === 3 ? "grid-cols-3" : methods.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
         {methods.map(({ key, amount }) => {
           const cfg = PAYMENT_CONFIG[key];
           const tip = tips?.[key];
           return (
             <div key={key} className={`rounded-2xl border ${cfg.border} ${cfg.bg} p-4`}>
-              <div className={`w-8 h-8 rounded-xl bg-white/60 flex items-center justify-center mb-2 ${cfg.color}`}>
+              <div className={`w-8 h-8 rounded-xl bg-white/60 dark:bg-slate-700/60 flex items-center justify-center mb-2 ${cfg.color}`}>
                 {cfg.icon}
               </div>
-              <p className="text-xs text-slate-500 mb-0.5">{cfg.label}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{cfg.label}</p>
               <p className={`text-base font-bold ${cfg.color}`}>{fmtCurrency(amount)}</p>
-              {tip && <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{tip}</p>}
+              {tip && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">{tip}</p>}
             </div>
           );
         })}
@@ -336,18 +342,18 @@ function ActionCard({ action, onNavigate }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <p className="text-sm font-semibold text-slate-800 leading-snug">{action.title}</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">{action.title}</p>
           {action.value && (
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${cfg.valueBg}`}>
               {action.value}
             </span>
           )}
         </div>
-        <p className="text-xs text-slate-500 leading-relaxed">{action.reason}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{action.reason}</p>
         {action.link && action.linkLabel && (
           <button
             onClick={() => onNavigate(action.link)}
-            className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg bg-white/70 border border-white text-slate-600 hover:bg-white transition"
+            className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg bg-white/70 dark:bg-slate-800/80 border border-white dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition"
           >
             {action.linkLabel} →
           </button>
@@ -363,44 +369,44 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
       {/* Daily summary skeleton */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0" />
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-4 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex-shrink-0" />
         <div className="flex-1 space-y-1.5">
-          <div className="h-2.5 bg-slate-100 rounded w-16" />
-          <div className="h-5 bg-slate-100 rounded w-28" />
-          <div className="h-2 bg-slate-100 rounded w-20" />
+          <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded w-16" />
+          <div className="h-5 bg-slate-100 dark:bg-slate-700 rounded w-28" />
+          <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded w-20" />
         </div>
       </div>
       {/* Monthly card skeleton */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-5 space-y-4">
         <div className="flex justify-between">
           <div className="space-y-2">
-            <div className="h-2.5 bg-slate-100 rounded w-28" />
-            <div className="h-7 bg-slate-100 rounded w-36" />
-            <div className="h-2 bg-slate-100 rounded w-40" />
+            <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded w-28" />
+            <div className="h-7 bg-slate-100 dark:bg-slate-700 rounded w-36" />
+            <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded w-40" />
           </div>
-          <div className="h-6 bg-slate-100 rounded-full w-24" />
+          <div className="h-6 bg-slate-100 dark:bg-slate-700 rounded-full w-24" />
         </div>
-        <div className="h-1.5 bg-slate-100 rounded-full" />
+        <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full" />
         <div className="grid grid-cols-2 gap-3">
-          <div className="h-16 bg-slate-100 rounded-xl" />
-          <div className="h-16 bg-slate-100 rounded-xl" />
+          <div className="h-16 bg-slate-100 dark:bg-slate-700 rounded-xl" />
+          <div className="h-16 bg-slate-100 dark:bg-slate-700 rounded-xl" />
         </div>
       </div>
       {/* Payment skeleton */}
       <div className="grid grid-cols-3 gap-3">
         {[1, 2, 3].map(i => (
-          <div key={i} className="bg-slate-100 rounded-2xl h-28" />
+          <div key={i} className="bg-slate-100 dark:bg-slate-700 rounded-2xl h-28" />
         ))}
       </div>
       {/* Action cards skeleton */}
       {[1, 2, 3].map(i => (
-        <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 flex gap-4">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 flex-shrink-0" />
+        <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 p-5 flex gap-4">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex-shrink-0" />
           <div className="flex-1 space-y-2 pt-1">
-            <div className="h-3 bg-slate-100 rounded w-2/5" />
-            <div className="h-2.5 bg-slate-100 rounded w-3/4" />
-            <div className="h-2.5 bg-slate-100 rounded w-1/2" />
+            <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded w-2/5" />
+            <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded w-3/4" />
+            <div className="h-2.5 bg-slate-100 dark:bg-slate-700 rounded w-1/2" />
           </div>
         </div>
       ))}

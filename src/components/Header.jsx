@@ -1,39 +1,46 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import Logo from "./Logo";
 import { useState, useRef, useEffect } from "react";
-import iconBanknotes from "../icons/banknotes-dollar-money-currency-finance-payment-svgrepo-com.svg";
-import iconChartPie from "../icons/chart-pie-svgrepo-com.svg";
-import iconLawBuilding from "../icons/law-building-svgrepo-com.svg";
-import iconWallet from "../icons/wallet-svgrepo-com.svg";
+import { useTheme } from "../context/ThemeContext";
+import iconDollar from "../svg/dollar.svg";
+import iconChart from "../svg/chart.svg";
+import iconGlobe from "../svg/globe.svg";
+import iconCreditCard from "../svg/credit-card.svg";
+import iconSun from "../svg/sun.svg";
+import iconMoon from "../svg/moon.svg";
+import iconHome from "../svg/home.svg";
+import iconInsights from "../svg/insights.svg";
+import iconMenu from "../svg/menu.svg";
+import iconClose from "../svg/close.svg";
+import iconUser from "../svg/user.svg";
 
 
 export default function Header({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   const navLinks = [
     { label: "Home", path: "/dashboard", icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" /></svg>
+      <img src={iconHome} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "Transações", path: "/transactions", icon: (
-      <img src={iconBanknotes} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+      <img src={iconDollar} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "Investimentos", path: "/investiments", icon: (
-      <img src={iconChartPie} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+      <img src={iconChart} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "Open Finance", path: "/open-finance", icon: (
-      <img src={iconLawBuilding} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+      <img src={iconGlobe} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "Metas", path: "/goals", icon: (
-      <img src={iconWallet} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+      <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "James", path: "/james", icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
-      </svg>
+      <img src={iconInsights} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
   ];
 
@@ -52,7 +59,7 @@ export default function Header({ onLogout }) {
   }
 
   return (
-    <header className="bg-blue-600 px-4 lg:px-8 sticky top-0 z-40">
+    <header className="bg-blue-600 dark:bg-[#0d1320] dark:border-b dark:border-slate-800 px-4 lg:px-8 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto flex justify-between items-center h-16">
         {/* LOGO */}
         <div
@@ -82,18 +89,28 @@ export default function Header({ onLogout }) {
 
         {/* RIGHT: mobile toggle + profile */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+            title={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+            aria-label={theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+          >
+            <img
+              src={theme === "dark" ? iconSun : iconMoon}
+              alt=""
+              className="w-5 h-5"
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
+          </button>
+
           {/* Mobile toggle */}
           <button
             className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-label="Abrir menu"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              {mobileOpen
-                ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              }
-            </svg>
+            <img src={mobileOpen ? iconClose : iconMenu} alt="" className="w-5 h-5" style={{ filter: "brightness(0) invert(1)" }} />
           </button>
 
           {/* Profile */}
@@ -103,31 +120,28 @@ export default function Header({ onLogout }) {
               className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
               title="Perfil"
             >
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21a8 8 0 1 0-16 0" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
+              <img src={iconUser} alt="" className="w-[18px] h-[18px]" style={{ filter: "brightness(0) invert(1)" }} />
             </button>
 
             {isOpen && (
-              <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg border border-slate-100 z-50 overflow-hidden animate-scale-in">
+              <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-100 dark:border-slate-700 z-50 overflow-hidden animate-scale-in">
                 <button
                   onClick={() => { navigate("/profile"); setIsOpen(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   Meu perfil
                 </button>
-                <div className="h-px bg-slate-100" />
+                <div className="h-px bg-slate-100 dark:bg-slate-700" />
                 <button
                   onClick={() => { navigate("/settings"); setIsOpen(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   Configurações
                 </button>
-                <div className="h-px bg-slate-100" />
+                <div className="h-px bg-slate-100 dark:bg-slate-700" />
                 <button
                   onClick={onLogout}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                 >
                   Sair
                 </button>

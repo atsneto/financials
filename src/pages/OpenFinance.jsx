@@ -6,7 +6,7 @@ import {
   listConnections,
 } from "../services/pluggyService";
 import { usePluggyConnect } from "../hooks/usePluggyConnect";
-import lawBuilding from "../icons/law-building-svgrepo-com.svg";
+import lawBuilding from "../svg/globe.svg";
 
 export default function OpenFinance() {
   const [connections, setConnections] = useState([]);
@@ -157,10 +157,10 @@ export default function OpenFinance() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-200">
             Open Finance
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Conecte suas contas bancárias e importe transações automaticamente
           </p>
         </div>
@@ -212,14 +212,14 @@ export default function OpenFinance() {
 
       {/* Conexões */}
       {connections.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
             <img src={lawBuilding} alt="" className="w-8 h-8 opacity-40" />
           </div>
-          <h3 className="text-base font-medium text-slate-700 mb-1">
+          <h3 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
             Nenhuma conta conectada
           </h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             Conecte seu banco via Open Finance para importar transações, saldos
             e extratos automaticamente.
           </p>
@@ -229,14 +229,14 @@ export default function OpenFinance() {
           {connections.map((conn) => (
             <div
               key={conn.id}
-              className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col gap-4"
+              className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 flex flex-col gap-4"
             >
               <div className="flex items-center gap-3">
                 {conn.connector_logo ? (
                   <img
                     src={conn.connector_logo}
                     alt={conn.connector_name}
-                    className="w-10 h-10 rounded-lg object-contain bg-slate-50 p-1 border border-slate-100"
+                    className="w-10 h-10 rounded-lg object-contain bg-slate-50 dark:bg-slate-900 p-1 border border-slate-100 dark:border-slate-800"
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
@@ -246,10 +246,10 @@ export default function OpenFinance() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-800 text-sm truncate">
+                  <p className="font-medium text-slate-800 dark:text-slate-200 text-sm truncate">
                     {conn.connector_name || "Banco"}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
                     {conn.last_sync_at
                       ? `Sincronizado ${new Date(conn.last_sync_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
                       : "Nunca sincronizado"}
@@ -261,7 +261,7 @@ export default function OpenFinance() {
                       ? "bg-emerald-50 text-emerald-600"
                       : conn.status === "UPDATING"
                       ? "bg-amber-50 text-amber-600"
-                      : "bg-slate-100 text-slate-500"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
                   }`}
                 >
                   {conn.status === "UPDATED"
@@ -276,7 +276,7 @@ export default function OpenFinance() {
                 <button
                   onClick={() => handleSync(conn.item_id)}
                   disabled={syncing === conn.item_id}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition disabled:opacity-50"
                 >
                   {syncing === conn.item_id ? (
                     <span className="h-3.5 w-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
@@ -299,7 +299,7 @@ export default function OpenFinance() {
                 </button>
                 <button
                   onClick={() => setDeleteModal(conn.item_id)}
-                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-red-500 hover:bg-red-50 hover:border-red-200 transition"
+                  className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-red-500 hover:bg-red-50 hover:border-red-200 transition"
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -322,8 +322,8 @@ export default function OpenFinance() {
       )}
 
       {/* Info */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 className="text-sm font-medium text-slate-700 mb-3">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
           Como funciona
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -332,8 +332,8 @@ export default function OpenFinance() {
               <span className="text-primary-600 font-semibold text-sm">1</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-700">Conecte</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Conecte</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Selecione seu banco e autorize a conexão via Pluggy
               </p>
             </div>
@@ -343,8 +343,8 @@ export default function OpenFinance() {
               <span className="text-primary-600 font-semibold text-sm">2</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-700">Sincronize</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Sincronize</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 As transações são importadas automaticamente para o Financials
               </p>
             </div>
@@ -354,8 +354,8 @@ export default function OpenFinance() {
               <span className="text-primary-600 font-semibold text-sm">3</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-700">Acompanhe</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Acompanhe</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Veja tudo consolidado no Dashboard e em Transações
               </p>
             </div>
@@ -366,18 +366,18 @@ export default function OpenFinance() {
       {/* Delete Confirmation Modal */}
       {deleteModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
-          <div className="bg-white p-6 rounded-xl w-full max-w-sm text-center border border-slate-200 shadow-lg">
-            <h2 className="text-lg font-semibold text-slate-800 mb-2">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-full max-w-sm text-center border border-slate-200 dark:border-slate-700 shadow-lg">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">
               Desconectar Banco
             </h2>
-            <p className="text-sm text-slate-500 mb-6">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
               As transações importadas deste banco também serão removidas.
               Deseja continuar?
             </p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={() => setDeleteModal(null)}
-                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg border border-slate-200 transition"
+                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition"
               >
                 Cancelar
               </button>

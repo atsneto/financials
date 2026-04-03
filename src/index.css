@@ -20,9 +20,51 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  body {
-    @apply bg-slate-50 text-slate-900;
+  /* ── Light theme tokens ──────────────────────────────────────────── */
+  :root {
+    --color-body: #f8fafc;       /* slate-50 */
+    --color-surface: #ffffff;
+    --color-surface-alt: #f1f5f9; /* slate-100 */
+    --color-border: #e2e8f0;     /* slate-200 */
+    --color-border-subtle: #f1f5f9;
+    --color-chart-grid: #e2e8f0;
+    --color-chart-text: #94a3b8;
+    --color-chart-cursor: rgba(0, 0, 0, 0.03);
+    --color-tooltip-bg: #ffffff;
+    --color-tooltip-border: #e2e8f0;
   }
+
+  /* ── Dark theme tokens ───────────────────────────────────────────── */
+  .dark {
+    --color-body: #0B0F19;
+    --color-surface: #131825;
+    --color-surface-alt: #1A2033;
+    --color-border: #1F2A3D;
+    --color-border-subtle: #171E2E;
+    --color-chart-grid: #1F2A3D;
+    --color-chart-text: #64748b;
+    --color-chart-cursor: rgba(255, 255, 255, 0.04);
+    --color-tooltip-bg: #131825;
+    --color-tooltip-border: #1F2A3D;
+  }
+
+  body {
+    @apply text-slate-900;
+    background-color: var(--color-body);
+  }
+
+  .dark body,
+  body.dark {
+    @apply text-slate-100;
+  }
+}
+
+/* Smooth theme transition */
+html {
+  transition: background-color 0.2s ease, color 0.15s ease;
+}
+html * {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 /* Hide Edge/IE default password reveal and clear icons to avoid double eye */
@@ -50,4 +92,11 @@ input[type="password"]::-webkit-textfield-decoration-container {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }

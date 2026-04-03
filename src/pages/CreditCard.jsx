@@ -3,6 +3,9 @@ import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import iconPen from "../svg/pen.svg";
+import iconTrash from "../svg/trash.svg";
+import { getBank } from "../utils/banks";
 import Papa from "papaparse";
 import {
   ResponsiveContainer,
@@ -17,6 +20,7 @@ import {
   Line,
   Legend,
 } from "recharts";
+import { useTheme } from "../context/ThemeContext";
 
 export default function CreditCard() {
   const [purchases, setPurchases] = useState([]);
@@ -36,6 +40,8 @@ export default function CreditCard() {
   // múltiplos cartões
   const [userCards, setUserCards] = useState([]);
   const [selectedCardId, setSelectedCardId] = useState(null); // null = todos
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   // Filtro de mês/ano para a lista de compras
   const nowDate = new Date();
@@ -65,7 +71,7 @@ export default function CreditCard() {
     const [{ data }, { data: settings }, { data: cardsData }] = await Promise.all([
       supabase.from("credit_card_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("credit_card_settings").select("closing_day, due_day").eq("user_id", user.id).maybeSingle(),
-      supabase.from("credit_cards").select("id, name, last_four, closing_day, due_day").eq("user_id", user.id).order("created_at"),
+      supabase.from("credit_cards").select("id, name, last_four, closing_day, due_day, bank_id").eq("user_id", user.id).order("created_at"),
     ]);
 
     setPurchases(data || []);
@@ -431,15 +437,15 @@ export default function CreditCard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-semibold text-slate-800">Cartão de Crédito</h1>
-            <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
+            <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-200">Cartão de Crédito</h1>
+            <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
               <span>Fatura: R$ {total.toFixed(2)}</span>
-              <span className="text-slate-300">•</span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
               <span>Fechamento dia {effectiveClosingDay}</span>
-              <span className="text-slate-300">•</span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
               <span>Vencimento dia {effectiveDueDay}</span>
             </div>
 
@@ -451,24 +457,34 @@ export default function CreditCard() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                     selectedCardId === null
                       ? "bg-primary-600 text-white border-primary-600"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
                   }`}
                 >
                   Todos
                 </button>
-                {userCards.map((card) => (
+                {userCards.map((card) => {
+                  const bank = getBank(card.bank_id);
+                  const isActive = selectedCardId === card.id;
+                  return (
                   <button
                     key={card.id}
                     onClick={() => setSelectedCardId(card.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
-                      selectedCardId === card.id
-                        ? "bg-primary-600 text-white border-primary-600"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                      isActive
+                        ? "text-white border-transparent"
+                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
                     }`}
+                    style={isActive ? { backgroundColor: bank?.color || "#7c3aed", borderColor: bank?.color || "#7c3aed" } : undefined}
                   >
+                    {bank && (
+                      isActive
+                        ? <img src={bank.logo} alt="" className="w-4 h-4 object-contain" style={{ filter: "brightness(0) invert(1)" }} />
+                        : <div className="w-4 h-4 rounded bg-white border border-slate-200 dark:border-slate-500 flex items-center justify-center p-0.5"><img src={bank.logo} alt="" className="w-full h-full object-contain" /></div>
+                    )}
                     {card.name}{card.last_four ? ` •••• ${card.last_four}` : ""}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -480,7 +496,7 @@ export default function CreditCard() {
                 setFilterYear(y);
                 setFilterMonth(m);
               }}
-              className="border border-slate-200 text-slate-700 px-3 py-2 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-100 px-3 py-2 rounded-lg text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               {ccMonthsAvailable.map((m) => (
                 <option key={m.key} value={m.key}>{m.label}</option>
@@ -489,10 +505,10 @@ export default function CreditCard() {
             <button onClick={openAddModal} className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
               + Nova Compra
             </button>
-            <button onClick={generatePDF} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium transition">
+            <button onClick={generatePDF} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition">
               PDF
             </button>
-            <button onClick={() => setIsClosingModalOpen(true)} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium transition">
+            <button onClick={() => setIsClosingModalOpen(true)} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition">
               Configurar Fechamento
             </button>
             <label className="bg-slate-800 text-white hover:bg-slate-700 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition">
@@ -505,33 +521,33 @@ export default function CreditCard() {
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
               <div>
-                <h3 className="text-base font-semibold text-slate-800">Compras registradas</h3>
-                <p className="text-xs text-slate-500">Organizadas da mais recente para a mais antiga.</p>
+                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">Compras registradas</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Organizadas da mais recente para a mais antiga.</p>
               </div>
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">{purchases.length} itens</span>
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{purchases.length} itens</span>
             </div>
 
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
               {purchases.length === 0 && (
-                <li className="p-8 text-center text-slate-400">
+                <li className="p-8 text-center text-slate-400 dark:text-slate-500">
                   <p className="font-medium">Nenhuma compra registrada</p>
                   <p className="text-sm mt-1">Adicione uma nova ou importe um CSV</p>
                 </li>
               )}
               {purchases.map((p) => (
-                <li key={p.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 hover:bg-slate-50 transition group">
+                <li key={p.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-700 transition group">
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-lg bg-primary-50 text-primary-600 font-semibold flex items-center justify-center text-sm border border-primary-100">
                       {p.title ? p.title.charAt(0).toUpperCase() : "-"}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800 text-sm">{p.title}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-1 text-xs text-slate-500">
-                        <span className="px-2 py-0.5 rounded bg-slate-100">{p.merchant || "-"}</span>
-                        <span className="px-2 py-0.5 rounded bg-slate-100">{p.category || "-"}</span>
+                      <p className="font-medium text-slate-800 dark:text-slate-200 text-sm">{p.title}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700">{p.merchant || "-"}</span>
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700">{p.category || "-"}</span>
                         <span>{p.created_at ? new Date(p.created_at).toLocaleDateString() : "-"}</span>
                       </div>
                     </div>
@@ -547,11 +563,11 @@ export default function CreditCard() {
                         </span>
                       );
                     })()}
-                    <button onClick={() => openEditModal(p)} className="text-slate-400 hover:text-primary-600 transition opacity-0 group-hover:opacity-100" aria-label="Editar compra">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
+                    <button onClick={() => openEditModal(p)} className="text-slate-400 dark:text-slate-500 hover:text-primary-600 transition opacity-0 group-hover:opacity-100" aria-label="Editar compra">
+                      <img src={iconPen} alt="" className="w-4 h-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.6)" }} />
                     </button>
-                    <button onClick={() => handleDelete(p.id)} className="text-slate-400 hover:text-red-500 transition opacity-0 group-hover:opacity-100" aria-label="Apagar compra">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m2 0H7m4-3h2a1 1 0 011 1v1H10V5a1 1 0 011-1z" /></svg>
+                    <button onClick={() => handleDelete(p.id)} className="text-slate-400 dark:text-slate-500 hover:text-red-500 transition opacity-0 group-hover:opacity-100" aria-label="Apagar compra">
+                      <img src={iconTrash} alt="" className="h-4 w-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.6)" }} />
                     </button>
                   </div>
                 </li>
@@ -562,27 +578,27 @@ export default function CreditCard() {
 
         <aside className="lg:col-span-1 space-y-4">
           {/* Invoice summary */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <p className="text-sm text-slate-500">Total desta fatura</p>
-            <p className="text-2xl font-semibold text-slate-800 mt-1">R$ {total.toFixed(2)}</p>
-            <div className="mt-3 space-y-1 text-xs text-slate-500">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Total desta fatura</p>
+            <p className="text-2xl font-semibold text-slate-800 dark:text-slate-200 mt-1">R$ {total.toFixed(2)}</p>
+            <div className="mt-3 space-y-1 text-xs text-slate-500 dark:text-slate-400">
               <p>{count} compras • Média R$ {average.toFixed(2)}</p>
               <p>Média mês R$ {monthlyAverage.toFixed(2)}</p>
             </div>
-            <div className="mt-3 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 text-center font-medium">
+            <div className="mt-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 text-center font-medium">
               Fechamento {effectiveClosingDay} • Vencimento {effectiveDueDay}
             </div>
           </div>
 
           {/* Merchant recurrence */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-medium text-slate-700">Estabelecimentos recorrentes</h4>
+              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Estabelecimentos recorrentes</h4>
               <select
                 aria-label="Filtrar estabelecimentos por mês"
                 value={merchantMonthFilter}
                 onChange={(e) => setMerchantMonthFilter(e.target.value)}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option key="invoice" value="invoice">Fatura atual</option>
                 <option key="all" value="all">Todos</option>
@@ -594,12 +610,12 @@ export default function CreditCard() {
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={merchantCounts} margin={{ top: 10, right: 10, left: 0, bottom: 80 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} interval={0} angle={-45} textAnchor="end" />
-                  <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#1F2A3D" : "#e2e8f0"} opacity={0.5} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b' }} interval={0} angle={-45} textAnchor="end" />
+                  <YAxis tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b' }} />
                   <ReTooltip
                     formatter={(value) => [`${value} compras`, "Total:"]}
-                    contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: 'none' }}
+                    contentStyle={{ backgroundColor: isDark ? '#131825' : '#fff', borderRadius: '8px', border: `1px solid ${isDark ? '#1F2A3D' : '#e2e8f0'}`, boxShadow: 'none', color: isDark ? '#e2e8f0' : undefined }}
                   />
                   <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]}>
                     <LabelList dataKey="count" position="top" fontSize={10} />
@@ -610,14 +626,14 @@ export default function CreditCard() {
           </div>
 
           {/* Yearly chart */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-slate-700">Gastos no ano</h4>
+              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Gastos no ano</h4>
               <select
                 aria-label="Selecionar ano"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 {yearOptions.map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -627,10 +643,10 @@ export default function CreditCard() {
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthly} margin={{ top: 5, right: 8, left: 6, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
-                  <XAxis dataKey="month" interval={0} padding={{ left: 10, right: 10 }} tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#1F2A3D" : "#e2e8f0"} opacity={0.5} />
+                  <XAxis dataKey="month" interval={0} padding={{ left: 10, right: 10 }} tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b' }} />
                   <YAxis
-                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    tick={{ fontSize: 10, fill: isDark ? '#64748b' : '#64748b' }}
                     tickFormatter={(v) => {
                       const n = Number(v);
                       if (Math.abs(n) >= 1000) return `R$ ${(n / 1000).toFixed(0)}K`;
@@ -639,7 +655,7 @@ export default function CreditCard() {
                   />
                   <ReTooltip
                     formatter={(v) => `R$ ${Number(v).toFixed(2)}`}
-                    contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: 'none' }}
+                    contentStyle={{ backgroundColor: isDark ? '#131825' : '#fff', borderRadius: '8px', border: `1px solid ${isDark ? '#1F2A3D' : '#e2e8f0'}`, boxShadow: 'none', color: isDark ? '#e2e8f0' : undefined }}
                   />
                   <Bar dataKey="total" fill="#f87171" radius={[4, 4, 0, 0]}>
                     <LabelList dataKey="total" position="top" fontSize={10} formatter={(v) => (Number(v) >= 1000 ? `${(v / 1000).toFixed(1)}K` : `R$ ${Number(v).toFixed(0)}`)} />
@@ -654,35 +670,35 @@ export default function CreditCard() {
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div ref={modalRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px] px-4">
-          <div className="w-full max-w-md bg-white rounded-xl p-6 shadow-lg border border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800 mb-1">
+          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-1">
               {editingPurchase ? "Editar compra" : "Nova compra"}
             </h2>
-            <p className="text-sm text-slate-500 mb-5">Preencha os dados da compra do cartão.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Preencha os dados da compra do cartão.</p>
 
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Título</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Título</label>
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Valor</label>
-                <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Valor</label>
+                <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Estabelecimento</label>
-                <input type="text" value={merchant} onChange={(e) => setMerchant(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Estabelecimento</label>
+                <input type="text" value={merchant} onChange={(e) => setMerchant(e.target.value)} className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Categoria</label>
-                <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Categoria</label>
+                <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Data da compra</label>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Data da compra</label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">Cancelar</button>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition">Cancelar</button>
                 <button type="submit" className="px-5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition">Salvar</button>
               </div>
             </form>
@@ -693,21 +709,21 @@ export default function CreditCard() {
       {/* Closing day modal */}
       {isClosingModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px] px-4">
-          <div className="w-full max-w-sm bg-white rounded-xl p-6 shadow-lg border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-800 mb-1">Configurar dia de fechamento</h3>
-            <p className="text-sm text-slate-500 mb-4">Escolha o dia do mês em que sua fatura fecha (1-31).</p>
+          <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-1">Configurar dia de fechamento</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Escolha o dia do mês em que sua fatura fecha (1-31).</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Dia do fechamento</label>
-                <input type="number" min={1} max={31} value={closingDay} onChange={(e) => setClosingDay(Number(e.target.value))} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Dia do fechamento</label>
+                <input type="number" min={1} max={31} value={closingDay} onChange={(e) => setClosingDay(Number(e.target.value))} className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1">Dia do vencimento</label>
-                <input type="number" min={1} max={31} value={dueDay} onChange={(e) => setDueDay(Number(e.target.value))} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Dia do vencimento</label>
+                <input type="number" min={1} max={31} value={dueDay} onChange={(e) => setDueDay(Number(e.target.value))} className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
-              <button onClick={() => setIsClosingModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition">Cancelar</button>
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700 mt-4">
+              <button onClick={() => setIsClosingModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition">Cancelar</button>
               <button onClick={saveClosingDay} className="px-5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition">Salvar</button>
             </div>
           </div>

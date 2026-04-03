@@ -22,12 +22,14 @@ import Landing from "./pages/Landing";
 import Subscribe from "./pages/Subscribe";
 import SubscribeSuccess from "./pages/SubscribeSuccess";
 import { AIProvider } from "./context/AIContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
+    <ThemeProvider>
     <AIProvider>
       <Routes>
         {/* ROTAS PÚBLICAS */}
@@ -86,6 +88,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AIProvider>
+    </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
