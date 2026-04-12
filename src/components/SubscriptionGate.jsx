@@ -16,19 +16,26 @@ export default function SubscriptionGate({ children }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setStatus("inactive"); return; }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("subscriptions")
         .select("status, trial_ends_at")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
-      const isPaid = data?.status === "active";
+      // Se a tabela não existir ou der erro, libera acesso (Stripe ainda não configurado)
+      if (error) { setStatus("active"); return; }
+
+      // Se não tem registro na tabela, libera acesso (plano gratuito implícito)
+      if (!data) { setStatus("active"); return; }
+
+      const isPaid = data.status === "active";
+      const isFree = data.status === "free";
       const isTrialing =
-        data?.status === "trialing" &&
-        data?.trial_ends_at &&
+        data.status === "trialing" &&
+        data.trial_ends_at &&
         new Date(data.trial_ends_at) > new Date();
 
-      setStatus(isPaid || isTrialing ? "active" : "inactive");
+      setStatus(isPaid || isFree || isTrialing ? "active" : "inactive");
     }
 
     check();

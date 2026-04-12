@@ -9,4 +9,5 @@ ALTER TABLE IF EXISTS public.credit_card_settings
 -- Add meal voucher fields to financial_profile
 ALTER TABLE IF EXISTS public.financial_profile
   ADD COLUMN IF NOT EXISTS has_meal_voucher boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS meal_voucher_monthly_amount numeric(12,2);
+  ADD COLUMN IF NOT EXISTS meal_voucher_monthly_amount numeric(12,2),
+  ADD COLUMN IF NOT EXISTS meal_voucher_carryover boolean DEFAULT false;

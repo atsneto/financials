@@ -33,9 +33,9 @@ function Toggle({ value, onChange, label, description }) {
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`relative flex-shrink-0 w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value ? "bg-primary-600" : "bg-slate-200"}`}
+        className={`relative inline-flex flex-shrink-0 w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${value ? "bg-primary-600" : "bg-slate-200 dark:bg-slate-600"}`}
       >
-        <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? "translate-x-5" : "translate-x-1"}`} />
+        <span className={`inline-block w-4 h-4 bg-white rounded-full shadow transform transition-transform mt-1 ${value ? "translate-x-5" : "translate-x-1"}`} />
       </button>
     </div>
   );
@@ -88,6 +88,7 @@ export default function Settings() {
   const [monthlyIncome, setMonthlyIncome] = useState("");
   const [hasMealVoucher, setHasMealVoucher] = useState(false);
   const [mealVoucherMonthlyAmount, setMealVoucherMonthlyAmount] = useState("");
+  const [mealVoucherCarryover, setMealVoucherCarryover] = useState(false);
 
   // Pagamentos — cartões
   const [cards, setCards] = useState([]);
@@ -123,7 +124,7 @@ export default function Settings() {
 
       const { data: fp } = await supabase
         .from("financial_profile")
-        .select("monthly_income, has_meal_voucher, meal_voucher_monthly_amount")
+        .select("monthly_income, has_meal_voucher, meal_voucher_monthly_amount, meal_voucher_carryover")
         .eq("user_id", uid)
         .maybeSingle();
 
@@ -131,6 +132,7 @@ export default function Settings() {
         setMonthlyIncome(fp.monthly_income ?? "");
         setHasMealVoucher(fp.has_meal_voucher ?? false);
         setMealVoucherMonthlyAmount(fp.meal_voucher_monthly_amount ?? "");
+        setMealVoucherCarryover(fp.meal_voucher_carryover ?? false);
       }
 
       const { data: cardsData } = await supabase
@@ -163,7 +165,8 @@ export default function Settings() {
       monthly_income: monthlyIncome ? Number(monthlyIncome) : null,
       has_meal_voucher: hasMealVoucher,
       meal_voucher_monthly_amount: hasMealVoucher && mealVoucherMonthlyAmount ? Number(mealVoucherMonthlyAmount) : null,
-    });
+      meal_voucher_carryover: hasMealVoucher ? mealVoucherCarryover : false,
+    }, { onConflict: 'user_id' });
     setSaving(false);
     setSuccess(true);
     setTimeout(() => setSuccess(false), 3000);
@@ -278,17 +281,25 @@ export default function Settings() {
                   description="Ativa o controle de saldo de vale alimentação"
                 />
                 {hasMealVoucher && (
-                  <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Valor mensal do vale (R$)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0,00"
-                      value={mealVoucherMonthlyAmount}
-                      onChange={(e) => setMealVoucherMonthlyAmount(e.target.value)}
-                      className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      style={{ fontSize: "16px" }}
+                  <div className="pt-1 border-t border-slate-100 dark:border-slate-800 space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Valor mensal do vale (R$)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0,00"
+                        value={mealVoucherMonthlyAmount}
+                        onChange={(e) => setMealVoucherMonthlyAmount(e.target.value)}
+                        className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        style={{ fontSize: "16px" }}
+                      />
+                    </div>
+                    <Toggle
+                      value={mealVoucherCarryover}
+                      onChange={setMealVoucherCarryover}
+                      label="Acumular saldo entre meses"
+                      description="O saldo que sobrar no m\u00eas ser\u00e1 somado ao pr\u00f3ximo"
                     />
                   </div>
                 )}

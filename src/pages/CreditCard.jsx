@@ -37,6 +37,14 @@ export default function CreditCard() {
   const [closingDay, setClosingDay] = useState(25);
   const [dueDay, setDueDay] = useState(5);
 
+  // Pagamento de fatura
+  const [invoicePayments, setInvoicePayments] = useState([]);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paymentAccount, setPaymentAccount] = useState("");
+  const [savingPayment, setSavingPayment] = useState(false);
+
   // múltiplos cartões
   const [userCards, setUserCards] = useState([]);
   const [selectedCardId, setSelectedCardId] = useState(null); // null = todos
@@ -71,14 +79,16 @@ export default function CreditCard() {
 
     const user = sessionData.session.user;
 
-    const [{ data }, { data: settings }, { data: cardsData }] = await Promise.all([
+    const [{ data }, { data: settings }, { data: cardsData }, { data: paymentsData }] = await Promise.all([
       supabase.from("credit_card_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("credit_card_settings").select("closing_day, due_day").eq("user_id", user.id).maybeSingle(),
       supabase.from("credit_cards").select("id, name, last_four, closing_day, due_day, bank_id").eq("user_id", user.id).order("created_at"),
+      supabase.from("invoice_payments").select("*").eq("user_id", user.id).order("payment_date", { ascending: false }),
     ]);
 
     setPurchases(data || []);
     setUserCards(cardsData || []);
+    setInvoicePayments(paymentsData || []);
 
     if (settings?.closing_day) setClosingDay(settings.closing_day);
     if (settings?.due_day) setDueDay(settings.due_day);
@@ -437,6 +447,82 @@ export default function CreditCard() {
     doc.save("extrato_cartao.pdf");
   }
 
+  // Pagamento de fatura
+  function openPaymentModal() {
+    setPaymentAmount(total.toFixed(2));
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentAccount("");
+    setIsPaymentModalOpen(true);
+  }
+
+  async function handlePayInvoice(e) {
+    e.preventDefault();
+    setSavingPayment(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) { setSavingPayment(false); return; }
+    const user = sessionData.session.user;
+    const paidAmount = Number(paymentAmount);
+    if (!paidAmount || paidAmount <= 0) { setSavingPayment(false); return; }
+    const txDate = paymentDate ? new Date(paymentDate + "T12:00:00").toISOString() : new Date().toISOString();
+
+    // 1. Registrar pagamento na tabela invoice_payments
+    await supabase.from("invoice_payments").insert({
+      user_id: user.id,
+      credit_card_id: selectedCardId || null,
+      invoice_month: filterMonth,
+      invoice_year: filterYear,
+      amount_paid: paidAmount,
+      payment_date: txDate,
+      account_label: paymentAccount.trim() || null,
+    });
+
+    // 2. Registrar transação de saída na conta (tabela transactions)
+    const cardName = selectedCardId
+      ? (userCards.find(c => c.id === selectedCardId)?.name || "Cartão")
+      : "Cartão de crédito";
+    const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    await supabase.from("transactions").insert({
+      user_id: user.id,
+      title: `Pagamento fatura ${cardName} - ${monthNames[filterMonth]}/${filterYear}`,
+      amount: paidAmount,
+      type: "expense",
+      category: "Pagamento de fatura",
+      payment_method: "debit_pix",
+      credit_card_id: selectedCardId || null,
+      created_at: txDate,
+    });
+
+    setSavingPayment(false);
+    setIsPaymentModalOpen(false);
+    window.dispatchEvent(new Event("transactions-updated"));
+    loadData();
+  }
+
+  // Cálculo de status da fatura atual
+  const invoicePaidTotal = invoicePayments
+    .filter((p) => {
+      const matchMonth = p.invoice_month === filterMonth && p.invoice_year === filterYear;
+      const matchCard = !selectedCardId || p.credit_card_id === selectedCardId;
+      return matchMonth && matchCard;
+    })
+    .reduce((sum, p) => sum + Number(p.amount_paid || 0), 0);
+
+  const invoiceRemaining = Math.max(0, total - invoicePaidTotal);
+  const invoiceStatus = total === 0
+    ? "sem_fatura"
+    : invoicePaidTotal === 0
+      ? "aberta"
+      : invoicePaidTotal >= total
+        ? "paga"
+        : "parcial";
+
+  // Pagamentos desta fatura (para histórico)
+  const currentInvoicePayments = invoicePayments.filter((p) => {
+    const matchMonth = p.invoice_month === filterMonth && p.invoice_year === filterYear;
+    const matchCard = !selectedCardId || p.credit_card_id === selectedCardId;
+    return matchMonth && matchCard;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -582,15 +668,79 @@ export default function CreditCard() {
         <aside className="lg:col-span-1 space-y-4">
           {/* Invoice summary */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-            <p className="text-sm text-slate-500 dark:text-slate-400">Total desta fatura</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Total desta fatura</p>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                invoiceStatus === "paga"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                  : invoiceStatus === "parcial"
+                    ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                    : invoiceStatus === "sem_fatura"
+                      ? "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                      : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400"
+              }`}>
+                {invoiceStatus === "paga" ? "Paga" : invoiceStatus === "parcial" ? "Parcialmente paga" : invoiceStatus === "sem_fatura" ? "Sem fatura" : "Aberta"}
+              </span>
+            </div>
             <p className="text-2xl font-semibold text-slate-800 dark:text-slate-200 mt-1">R$ {total.toFixed(2)}</p>
             <div className="mt-3 space-y-1 text-xs text-slate-500 dark:text-slate-400">
               <p>{count} compras • Média R$ {average.toFixed(2)}</p>
               <p>Média mês R$ {monthlyAverage.toFixed(2)}</p>
             </div>
+
+            {/* Valores pagos / restante */}
+            {total > 0 && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 dark:text-slate-400">Pago</span>
+                  <span className="font-medium text-emerald-600">R$ {invoicePaidTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 dark:text-slate-400">Restante</span>
+                  <span className={`font-medium ${invoiceRemaining > 0 ? "text-red-500" : "text-emerald-600"}`}>R$ {invoiceRemaining.toFixed(2)}</span>
+                </div>
+                {/* Barra de progresso */}
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${invoiceStatus === "paga" ? "bg-emerald-500" : "bg-amber-500"}`}
+                    style={{ width: `${Math.min(100, total > 0 ? (invoicePaidTotal / total) * 100 : 0)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="mt-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 text-center font-medium">
               Fechamento {effectiveClosingDay} • Vencimento {effectiveDueDay}
             </div>
+
+            {/* Botão pagar fatura */}
+              <button
+                onClick={openPaymentModal}
+                className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Pagar fatura
+              </button>
+
+            {/* Histórico de pagamentos desta fatura */}
+            {currentInvoicePayments.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700">
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Pagamentos registrados</p>
+                <div className="space-y-1.5">
+                  {currentInvoicePayments.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between text-xs">
+                      <div className="flex flex-col">
+                        <span className="text-slate-600 dark:text-slate-300">{new Date(p.payment_date).toLocaleDateString("pt-BR")}</span>
+                        {p.account_label && <span className="text-slate-400 dark:text-slate-500 text-[10px]">{p.account_label}</span>}
+                      </div>
+                      <span className="font-medium text-emerald-600">R$ {Number(p.amount_paid).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Merchant recurrence */}
@@ -729,6 +879,90 @@ export default function CreditCard() {
               <button onClick={() => setIsClosingModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition">Cancelar</button>
               <button onClick={saveClosingDay} className="px-5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition">Salvar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px] px-4" onClick={() => setIsPaymentModalOpen(false)}>
+          <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl p-6 shadow-lg border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-1">Pagar fatura</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">
+              Fatura de <span className="font-medium text-slate-700 dark:text-slate-300">R$ {total.toFixed(2)}</span>
+              {invoicePaidTotal > 0 && (
+                <> — já pago <span className="font-medium text-emerald-600">R$ {invoicePaidTotal.toFixed(2)}</span>, restam <span className="font-medium text-red-500">R$ {invoiceRemaining.toFixed(2)}</span></>
+              )}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-5">
+              Uma transação de despesa será registrada automaticamente.
+            </p>
+
+            <form onSubmit={handlePayInvoice} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Valor do pagamento (R$)</label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  style={{ fontSize: "16px" }}
+                  required
+                />
+                {invoiceRemaining > 0 && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmount(invoiceRemaining.toFixed(2))}
+                      className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                    >
+                      Restante (R$ {invoiceRemaining.toFixed(2)})
+                    </button>
+                    {invoicePaidTotal > 0 && total !== invoiceRemaining && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmount(total.toFixed(2))}
+                        className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                      >
+                        Total (R$ {total.toFixed(2)})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Conta utilizada</label>
+                <input
+                  type="text"
+                  value={paymentAccount}
+                  onChange={(e) => setPaymentAccount(e.target.value)}
+                  placeholder="Ex: Conta corrente Nubank"
+                  className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Data do pagamento</label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition">Cancelar</button>
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition disabled:opacity-50"
+                >
+                  {savingPayment ? "Registrando..." : "Confirmar pagamento"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

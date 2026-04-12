@@ -36,7 +36,7 @@ function Spinner() {
 export default function Subscribe() {
   const navigate = useNavigate();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [trialLoading, setTrialLoading] = useState(false);
+  const [freeLoading, setFreeLoading] = useState(false);
   const [error, setError] = useState("");
   // "loading" | "new_user" | "expired"
   const [mode, setMode] = useState("loading");
@@ -58,12 +58,13 @@ export default function Subscribe() {
       }
 
       const isPaid = data.status === "active";
+      const isFree = data.status === "free";
       const isTrialing =
         data.status === "trialing" &&
         data.trial_ends_at &&
         new Date(data.trial_ends_at) > new Date();
 
-      if (isPaid || isTrialing) {
+      if (isPaid || isFree || isTrialing) {
         navigate("/dashboard");
         return;
       }
@@ -74,61 +75,31 @@ export default function Subscribe() {
     detectMode();
   }, [navigate]);
 
-  async function handleStartTrial() {
-    setTrialLoading(true);
+  async function handleStartFree() {
+    setFreeLoading(true);
     setError("");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate("/login"); return; }
 
-      const trialEndsAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
-      const { error: dbError } = await supabase.from("subscriptions").insert({
+      // Tenta criar na tabela subscriptions; se falhar (tabela não existe, RLS etc), segue mesmo assim
+      await supabase.from("subscriptions").upsert({
         user_id: session.user.id,
-        status: "trialing",
-        trial_ends_at: trialEndsAt,
-      });
+        status: "free",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" }).then(() => {});
 
-      if (dbError) throw new Error("Não foi possível iniciar o teste gratuito.");
       navigate("/onboarding");
     } catch (err) {
-      setError(err.message || "Erro inesperado. Tente novamente.");
-      setTrialLoading(false);
+      // Mesmo com erro, segue para o onboarding
+      navigate("/onboarding");
     }
   }
 
   async function handleCheckout() {
-    setCheckoutLoading(true);
-    setError("");
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { navigate("/login"); return; }
-
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "create-checkout-session",
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      if (fnError || !data?.url) {
-        throw new Error("Não foi possível iniciar o pagamento.");
-      }
-
-      const allowedOrigins = ["https://checkout.stripe.com"];
-      const redirectUrl = new URL(data.url);
-      if (!allowedOrigins.some(o => data.url.startsWith(o))) {
-        throw new Error("URL de redirecionamento inválida.");
-      }
-
-      window.location.href = redirectUrl.href;
-    } catch (err) {
-      setError(err.message || "Erro inesperado. Tente novamente.");
-      setCheckoutLoading(false);
-    }
+    // Stripe não está configurado ainda
+    setError("Pagamento via Stripe em breve. Por enquanto, use a conta gratuita.");
   }
-
   async function handleLogout() {
     await supabase.auth.signOut();
     navigate("/login");
@@ -166,7 +137,7 @@ export default function Subscribe() {
               Como você quer começar?
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Escolha o teste grátis ou assine agora e tenha acesso completo.
+              Use grátis ou assine por R$ 5/mês para apoiar o projeto.
             </p>
           </div>
 
@@ -177,7 +148,7 @@ export default function Subscribe() {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Trial card */}
+            {/* Free card */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
               <div className="h-1 bg-slate-200 dark:bg-slate-700" />
               <div className="p-6 flex flex-col flex-1">
@@ -189,7 +160,7 @@ export default function Subscribe() {
                 <div className="mb-1">
                   <span className="text-4xl font-bold text-slate-900 dark:text-slate-100 leading-none">Grátis</span>
                 </div>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mb-5">por 3 dias</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mb-5">para sempre</p>
 
                 <ul className="space-y-2.5 mb-6 flex-1">
                   {FEATURES.map((f) => (
@@ -201,14 +172,14 @@ export default function Subscribe() {
                 </ul>
 
                 <button
-                  onClick={handleStartTrial}
-                  disabled={trialLoading || checkoutLoading}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl text-sm transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  onClick={handleStartFree}
+                  disabled={freeLoading || checkoutLoading}
+                  className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-semibold py-3 rounded-xl text-sm transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {trialLoading ? (
-                    <><Spinner /> Iniciando...</>
+                  {freeLoading ? (
+                    <><Spinner /> Criando conta...</>
                   ) : (
-                    "Começar teste grátis"
+                    "Continuar grátis"
                   )}
                 </button>
               </div>
@@ -226,7 +197,7 @@ export default function Subscribe() {
               <div className="p-6 flex flex-col flex-1">
                 <span className="inline-flex items-center gap-1.5 bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 border border-primary-100 dark:border-primary-900/60 rounded-full px-3 py-1 text-xs font-semibold mb-4 self-start">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
-                  Acesso imediato
+                  Apoie o projeto
                 </span>
 
                 <div className="flex items-end gap-1 mb-1">
@@ -246,7 +217,7 @@ export default function Subscribe() {
 
                 <button
                   onClick={handleCheckout}
-                  disabled={checkoutLoading || trialLoading}
+                  disabled={checkoutLoading || freeLoading}
                   className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-xl text-sm transition shadow-md shadow-primary-100 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {checkoutLoading ? (
@@ -307,59 +278,63 @@ export default function Subscribe() {
             Seu teste gratuito expirou
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">
-            Assine por apenas <span className="font-semibold text-slate-800 dark:text-slate-200">R$ 5 por mês</span> e continue com acesso completo às suas finanças.
+            Continue grátis ou assine por <span className="font-semibold text-slate-800 dark:text-slate-200">R$ 5/mês</span> para apoiar o projeto.
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden mb-5">
-          <div className="h-1 bg-gradient-to-r from-primary-500 to-blue-400" />
+        {error && (
+          <div className="mb-5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300 text-center">
+            {error}
+          </div>
+        )}
 
-          <div className="p-7">
-            <div className="flex items-end gap-1 mb-1">
-              <span className="text-5xl font-bold text-slate-900 dark:text-slate-100 leading-none">R$ 5</span>
-              <span className="text-slate-400 dark:text-slate-500 text-sm mb-1.5">/mês</span>
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mb-6">Cancele a qualquer momento</p>
-
-            <ul className="space-y-3 mb-7">
-              {FEATURES.map((f) => (
-                <li key={f} className="flex items-center gap-2.5 text-sm text-slate-600 dark:text-slate-300">
-                  <CheckIcon className="text-primary-500" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-
-            {error && (
-              <div className="mb-4 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300">
-                {error}
+        <div className="space-y-4 mb-5">
+          {/* Assinar card */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-primary-500 shadow-md overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-primary-500 to-blue-400" />
+            <div className="p-6">
+              <div className="flex items-end gap-1 mb-1">
+                <span className="text-4xl font-bold text-slate-900 dark:text-slate-100 leading-none">R$ 5</span>
+                <span className="text-slate-400 dark:text-slate-500 text-sm mb-1">/mês</span>
               </div>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-5">Cancele a qualquer momento</p>
+
+              <button
+                onClick={handleCheckout}
+                disabled={checkoutLoading || freeLoading}
+                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-xl text-sm transition shadow-md shadow-primary-100 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {checkoutLoading ? (
+                  <><Spinner /> Redirecionando...</>
+                ) : (
+                  <>
+                    <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+                    Assinar por R$ 5/mês
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-center gap-3 text-xs text-slate-400 dark:text-slate-500 mt-3">
+                <span className="flex items-center gap-1">
+                  <img src={iconLock} alt="" className="w-3.5 h-3.5" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
+                  Pagamento seguro via Stripe
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Free option */}
+          <button
+            onClick={handleStartFree}
+            disabled={freeLoading || checkoutLoading}
+            className="w-full py-3 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {freeLoading ? (
+              <><Spinner /> Criando conta...</>
+            ) : (
+              "Continuar grátis"
             )}
-
-            <button
-              onClick={handleCheckout}
-              disabled={checkoutLoading}
-              className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 rounded-xl text-sm transition shadow-md shadow-primary-100 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {checkoutLoading ? (
-                <><Spinner /> Redirecionando...</>
-              ) : (
-                <>
-                  <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
-                  Assinar por R$ 5/mês
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="px-7 pb-5 flex items-center justify-center gap-4 text-xs text-slate-400 dark:text-slate-500">
-            <span className="flex items-center gap-1">
-              <img src={iconLock} alt="" className="w-3.5 h-3.5" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
-              Pagamento seguro via Stripe
-            </span>
-            <span>·</span>
-            <span>Cancele quando quiser</span>
-          </div>
+          </button>
         </div>
 
         <button

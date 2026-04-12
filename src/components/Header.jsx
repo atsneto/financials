@@ -10,6 +10,7 @@ import iconSun from "../svg/sun.svg";
 import iconMoon from "../svg/moon.svg";
 import iconHome from "../svg/home.svg";
 import iconInsights from "../svg/insights.svg";
+import iconComment from "../svg/comment.svg";
 import iconMenu from "../svg/menu.svg";
 import iconClose from "../svg/close.svg";
 import iconUser from "../svg/user.svg";
@@ -40,7 +41,7 @@ export default function Header({ onLogout }) {
       <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
     { label: "James", path: "/james", icon: (
-      <img src={iconInsights} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
+      <img src={iconComment} alt="" className="w-4 h-4" style={{ filter: "brightness(0) invert(1)" }} />
     )},
   ];
 

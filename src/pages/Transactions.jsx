@@ -70,6 +70,19 @@ export default function Transactions() {
   const [csvMessage, setCsvMessage] = useState("");
   const [toast, setToast] = useState(null);
 
+  // Pagamento de fatura
+  const [invoicePayments, setInvoicePayments] = useState([]);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentCardId, setPaymentCardId] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paymentAccount, setPaymentAccount] = useState("");
+  const [savingPayment, setSavingPayment] = useState(false);
+
+  const [mealVoucherCarryover, setMealVoucherCarryover] = useState(false);
+  const [mealVoucherMonthlyAmount, setMealVoucherMonthlyAmount] = useState(0);
+  const [defaultClosingDay, setDefaultClosingDay] = useState(null);
+
   // Filtro de data (mês/ano)
   const now = new Date();
   const [filterMonth, setFilterMonth] = useState(now.getMonth());
@@ -80,6 +93,8 @@ export default function Transactions() {
   useEffect(() => {
     loadData();
     loadCards();
+    loadProfile();
+    loadClosingDay();
   }, []);
 
   useEffect(() => {
@@ -105,6 +120,28 @@ export default function Transactions() {
       .order("created_at", { ascending: false });
 
     setTransactions(data || []);
+
+    // Pagamentos de fatura
+    const { data: paymentsData } = await supabase
+      .from("invoice_payments")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("payment_date", { ascending: false });
+    setInvoicePayments(paymentsData || []);
+  }
+
+  async function loadProfile() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) return;
+    const { data: fp } = await supabase
+      .from("financial_profile")
+      .select("meal_voucher_carryover, meal_voucher_monthly_amount")
+      .eq("user_id", sessionData.session.user.id)
+      .maybeSingle();
+    if (fp) {
+      setMealVoucherCarryover(fp.meal_voucher_carryover ?? false);
+      setMealVoucherMonthlyAmount(Number(fp.meal_voucher_monthly_amount) || 0);
+    }
   }
 
   async function handleLogout() {
@@ -123,6 +160,83 @@ export default function Transactions() {
       .order("created_at");
     setCards(data || []);
     setLoadingCards(false);
+  }
+
+  async function loadClosingDay() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await supabase
+      .from("credit_card_settings")
+      .select("closing_day")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (data?.closing_day) setDefaultClosingDay(data.closing_day);
+  }
+
+  // --- Pagamento de fatura ---
+  function openPaymentModal() {
+    setPaymentCardId(cards.length === 1 ? cards[0].id : "");
+    setPaymentAmount("");
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+    setPaymentAccount("");
+    setIsPaymentModalOpen(true);
+    loadCards();
+  }
+
+  // Totais da fatura por cartão no mês filtrado
+  function getInvoiceTotalForCard(cardId) {
+    return monthTransactions
+      .filter((t) => t.payment_method === "credit_card" && t.type === "expense" && t.credit_card_id === cardId)
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  }
+
+  function getInvoicePaidForCard(cardId) {
+    return invoicePayments
+      .filter((p) => p.invoice_month === filterMonth && p.invoice_year === filterYear && p.credit_card_id === cardId)
+      .reduce((sum, p) => sum + Number(p.amount_paid || 0), 0);
+  }
+
+  async function handlePayInvoice(e) {
+    e.preventDefault();
+    setSavingPayment(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) { setSavingPayment(false); return; }
+    const user = sessionData.session.user;
+    const paidAmount = Number(paymentAmount);
+    if (!paidAmount || paidAmount <= 0) { setSavingPayment(false); return; }
+    const txDate = paymentDate ? new Date(paymentDate + "T12:00:00").toISOString() : new Date().toISOString();
+    const resolvedCardId = paymentCardId || null;
+
+    await supabase.from("invoice_payments").insert({
+      user_id: user.id,
+      credit_card_id: resolvedCardId,
+      invoice_month: filterMonth,
+      invoice_year: filterYear,
+      amount_paid: paidAmount,
+      payment_date: txDate,
+      account_label: paymentAccount.trim() || null,
+    });
+
+    const cardName = resolvedCardId
+      ? (cards.find(c => c.id === resolvedCardId)?.name || "Cartão")
+      : "Cartão de crédito";
+    const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    await supabase.from("transactions").insert({
+      user_id: user.id,
+      title: `Pagamento fatura ${cardName} - ${monthNames[filterMonth]}/${filterYear}`,
+      amount: paidAmount,
+      type: "expense",
+      category: "Pagamento de fatura",
+      payment_method: "debit_pix",
+      credit_card_id: null,
+      created_at: txDate,
+    });
+
+    setSavingPayment(false);
+    setIsPaymentModalOpen(false);
+    window.dispatchEvent(new Event("transactions-updated"));
+    loadData();
+    showToast(`Pagamento de R$ ${paidAmount.toFixed(2)} registrado com sucesso.`);
   }
 
   function openAddModal() {
@@ -325,7 +439,7 @@ export default function Transactions() {
   }
 
   const filteredTransactions = transactions.filter((t) => {
-    const d = getEffectiveBillingDate(t, cards);
+    const d = getEffectiveBillingDate(t, cards, defaultClosingDay);
     if (d.getMonth() !== filterMonth || d.getFullYear() !== filterYear) return false;
     if (filter !== "all" && t.type !== filter) return false;
     return true;
@@ -333,14 +447,14 @@ export default function Transactions() {
 
   // Dados apenas do mês filtrado para o summary
   const monthTransactions = transactions.filter((t) => {
-    const d = getEffectiveBillingDate(t, cards);
+    const d = getEffectiveBillingDate(t, cards, defaultClosingDay);
     return d.getMonth() === filterMonth && d.getFullYear() === filterYear;
   });
 
   // Meses disponíveis para filtro (usando data efetiva)
   const availableMonths = Array.from(
     new Set(transactions.map((t) => {
-      const d = getEffectiveBillingDate(t, cards);
+      const d = getEffectiveBillingDate(t, cards, defaultClosingDay);
       return `${d.getFullYear()}-${d.getMonth()}`;
     }))
   ).map((key) => {
@@ -359,49 +473,95 @@ export default function Transactions() {
   // PDF
   function generatePDF() {
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Extrato de Transações", 14, 20);
+    const pageW = doc.internal.pageSize.getWidth();
 
+    // Header bar
+    doc.setFillColor(30, 41, 59); // slate-800
+    doc.rect(0, 0, pageW, 32, "F");
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Extrato de Transações", 14, 15);
+    const monthNames = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+    doc.setFontSize(10);
+    doc.text(`${monthNames[filterMonth - 1]} ${filterYear}`, 14, 24);
+    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}`, pageW - 14, 24, { align: "right" });
+
+    // Summary cards
+    const totalIn = filteredTransactions.filter((t) => t.type === "income" && t.payment_method !== "meal_voucher").reduce((s, t) => s + Number(t.amount), 0);
+    const totalOut = filteredTransactions.filter((t) => t.type === "expense" && t.payment_method !== "meal_voucher").reduce((s, t) => s + Number(t.amount), 0);
+    const bal = totalIn - totalOut;
+    const totalVA = filteredTransactions.filter((t) => t.payment_method === "meal_voucher").reduce((s, t) => s + Number(t.amount) * (t.type === "income" ? 1 : -1), 0);
+
+    const summaryY = 40;
+    const boxW = (pageW - 28 - 12) / 4;
+    const boxes = [
+      { label: "Receitas", value: `R$ ${totalIn.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, color: [16, 185, 129] },
+      { label: "Despesas", value: `R$ ${totalOut.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, color: [239, 68, 68] },
+      { label: "Saldo", value: `R$ ${bal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, color: bal >= 0 ? [16, 185, 129] : [239, 68, 68] },
+      { label: "Vale Alimentação", value: `R$ ${totalVA.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, color: [245, 158, 11] },
+    ];
+    boxes.forEach((b, i) => {
+      const x = 14 + i * (boxW + 4);
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.roundedRect(x, summaryY, boxW, 18, 2, 2, "F");
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text(b.label.toUpperCase(), x + 4, summaryY + 6);
+      doc.setFontSize(11);
+      doc.setTextColor(...b.color);
+      doc.text(b.value, x + 4, summaryY + 14);
+    });
+
+    // Helper: payment method label
+    function pmLabel(pm) {
+      if (pm === "credit_card") return "Cartão";
+      if (pm === "meal_voucher") return "VA";
+      return "Débito/Pix";
+    }
+
+    // Table
     const tableData = filteredTransactions.map((tx) => [
+      tx.created_at ? new Date(tx.created_at).toLocaleDateString("pt-BR") : "-",
       tx.title || "-",
-      tx.type === "income" ? "Receita" : "Despesa",
-      `R$ ${Number(tx.amount || 0).toFixed(2)}`,
       tx.category || "-",
-      tx.created_at ? new Date(tx.created_at).toLocaleDateString() : "-",
+      pmLabel(tx.payment_method),
+      tx.type === "income" ? "Receita" : "Despesa",
+      `R$ ${Number(tx.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
     ]);
 
     autoTable(doc, {
-      startY: 30,
-      head: [["Título", "Tipo", "Valor", "Categoria", "Data"]],
+      startY: summaryY + 24,
+      head: [["Data", "Título", "Categoria", "Pagamento", "Tipo", "Valor"]],
       body: tableData,
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [255, 206, 0], textColor: 0 },
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        5: { halign: "right", fontStyle: "bold" },
+      },
       didParseCell: function (data) {
-        if (data.section === "body" && data.column.index === 2) {
+        if (data.section === "body" && data.column.index === 5) {
           const tx = filteredTransactions[data.row.index];
-          data.cell.styles.textColor =
-            tx.type === "income" ? [0, 128, 0] : [255, 0, 0];
+          data.cell.styles.textColor = tx.type === "income" ? [16, 185, 129] : [239, 68, 68];
+        }
+        if (data.section === "body" && data.column.index === 4) {
+          const tx = filteredTransactions[data.row.index];
+          data.cell.styles.textColor = tx.type === "income" ? [16, 185, 129] : [239, 68, 68];
         }
       },
     });
 
-    const totalIncome = filteredTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    // Footer
+    const finalY = doc.lastAutoTable.finalY + 8 || 50;
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.line(14, finalY, pageW - 14, finalY);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184); // slate-400
+    doc.text(`${filteredTransactions.length} transações • Financials App`, 14, finalY + 6);
+    doc.text(`Página 1`, pageW - 14, finalY + 6, { align: "right" });
 
-    const totalExpense = filteredTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    const balance = totalIncome - totalExpense;
-
-    const finalY = doc.lastAutoTable.finalY + 10 || 50;
-    doc.setFontSize(12);
-    doc.text(`Total Receitas: R$ ${totalIncome.toFixed(2)}`, 14, finalY);
-    doc.text(`Total Despesas: R$ ${totalExpense.toFixed(2)}`, 14, finalY + 7);
-    doc.text(`Saldo: R$ ${balance.toFixed(2)}`, 14, finalY + 14);
-
-    doc.save("extrato.pdf");
+    doc.save(`extrato-${filterYear}-${String(filterMonth).padStart(2, "0")}.pdf`);
   }
 
   /* ===================== PARSER CSV ===================== */
@@ -634,12 +794,32 @@ export default function Transactions() {
     setLoadingCsv(false);
   };
 
+  const mealVoucherTxs = monthTransactions.filter((t) => t.payment_method === "meal_voucher");
+  const mealVoucherIncomeThisMonth = mealVoucherTxs.filter((t) => t.type === "income").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const mealVoucherExpenseThisMonth = mealVoucherTxs.filter((t) => t.type === "expense").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  // Carryover: soma os saldos de meses anteriores
+  let mealVoucherPreviousBalance = 0;
+  if (mealVoucherCarryover) {
+    const filterDate = new Date(filterYear, filterMonth, 1);
+    transactions.forEach((t) => {
+      if (t.payment_method !== "meal_voucher") return;
+      const d = getEffectiveBillingDate(t, cards, defaultClosingDay);
+      const txMonthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+      if (txMonthStart >= filterDate) return; // só meses anteriores
+      const amt = Number(t.amount || 0);
+      mealVoucherPreviousBalance += t.type === "income" ? amt : -amt;
+    });
+  }
+
+  const totalMealVoucher = mealVoucherPreviousBalance + mealVoucherIncomeThisMonth - mealVoucherExpenseThisMonth;
+
   const totalIncome = monthTransactions
-  .filter((t) => t.type === "income")
+  .filter((t) => t.type === "income" && t.payment_method !== "meal_voucher")
   .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
 const totalExpense = monthTransactions
-  .filter((t) => t.type === "expense")
+  .filter((t) => t.type === "expense" && t.payment_method !== "meal_voucher")
   .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
 const balance = totalIncome - totalExpense;
@@ -657,11 +837,14 @@ return (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
           Nova transação
         </button>
-        <label className="inline-flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium px-4 py-2 rounded-lg cursor-pointer transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-          {csvFile ? csvFile.name : 'Importar CSV'}
-          <input type="file" accept=".csv" className="hidden" onChange={(e) => { const file = e.target.files[0]; if (!file) return; setCsvFile(file); handleCsvUpload(file); }} />
-        </label>
+        {cards.length > 0 && (
+          <button onClick={openPaymentModal} className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Pagar fatura
+          </button>
+        )}
         <button onClick={generatePDF} className="inline-flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           PDF
@@ -670,7 +853,7 @@ return (
     </div>
 
     {/* SUMMARY */}
-    <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Receitas</p>
         <p className="text-xl font-semibold text-emerald-600 mt-1">R$ {totalIncome.toFixed(2)}</p>
@@ -678,6 +861,10 @@ return (
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Despesas</p>
         <p className="text-xl font-semibold text-red-500 mt-1">R$ {totalExpense.toFixed(2)}</p>
+      </div>
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vale Alimentação</p>
+        <p className="text-xl font-semibold text-amber-500 mt-1">R$ {totalMealVoucher.toFixed(2)}</p>
       </div>
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Saldo</p>
@@ -891,7 +1078,7 @@ return (
             const year = new Date().getFullYear();
             const data = months.map((m, i) => ({ month: m, income: 0, expense: 0 }));
             transactions.forEach((tx) => {
-              const d = getEffectiveBillingDate(tx, cards);
+              const d = getEffectiveBillingDate(tx, cards, defaultClosingDay);
               if (d.getFullYear() === year) {
                 const idx = d.getMonth();
                 if (tx.type === "income") data[idx].income += Number(tx.amount || 0);
@@ -1388,6 +1575,136 @@ return (
               {selSaving ? "Salvando..." : "Aplicar"}
             </button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* PAYMENT MODAL */}
+    {isPaymentModalOpen && (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50 animate-fade-in" onClick={() => setIsPaymentModalOpen(false)}>
+        <div className="bg-white dark:bg-slate-800 rounded-xl w-full max-w-md p-6 shadow-soft-lg animate-scale-in border border-slate-200 dark:border-slate-700 mx-4" onClick={(e) => e.stopPropagation()}>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-1">Pagar fatura</h2>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-5">
+            Uma transação de despesa será registrada automaticamente.
+          </p>
+
+          <form onSubmit={handlePayInvoice} className="space-y-4">
+            {/* Cartão */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Cartão de crédito</label>
+              {cards.length === 0 ? (
+                <p className="text-xs text-slate-400 dark:text-slate-500">Nenhum cartão cadastrado.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {cards.map(card => {
+                    const bank = getBank(card.bank_id);
+                    const invTotal = getInvoiceTotalForCard(card.id);
+                    const invPaid = getInvoicePaidForCard(card.id);
+                    const invRemaining = Math.max(0, invTotal - invPaid);
+                    return (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => { setPaymentCardId(card.id); setPaymentAmount(invRemaining > 0 ? invRemaining.toFixed(2) : invTotal.toFixed(2)); }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-sm transition ${
+                          paymentCardId === card.id
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300"
+                            : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        {bank ? (
+                          <div className="w-5 h-5 flex-shrink-0 rounded bg-white border border-slate-200 dark:border-slate-600 flex items-center justify-center p-0.5">
+                            <img src={bank.logo} alt={bank.label} className="w-full h-full object-contain" />
+                          </div>
+                        ) : (
+                          <img src={iconCreditCard} alt="" className="w-4 h-4 flex-shrink-0" style={{ filter: iconAmber }} />
+                        )}
+                        <div className="flex-1 text-left">
+                          <span className="font-medium">{card.name}</span>
+                          {card.last_four && <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">•••• {card.last_four}</span>}
+                          <div className="flex gap-3 mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+                            <span>Fatura: R$ {invTotal.toFixed(2)}</span>
+                            {invPaid > 0 && <span className="text-emerald-500">Pago: R$ {invPaid.toFixed(2)}</span>}
+                            {invRemaining > 0 && invPaid > 0 && <span className="text-red-400">Resta: R$ {invRemaining.toFixed(2)}</span>}
+                          </div>
+                        </div>
+                        {paymentCardId === card.id && (
+                          <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Valor */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Valor do pagamento (R$)</label>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                style={{ fontSize: "16px" }}
+                required
+              />
+              {paymentCardId && (() => {
+                const invTotal = getInvoiceTotalForCard(paymentCardId);
+                const invPaid = getInvoicePaidForCard(paymentCardId);
+                const invRemaining = Math.max(0, invTotal - invPaid);
+                return invTotal > 0 ? (
+                  <div className="flex gap-2 mt-2">
+                    {invRemaining > 0 && invPaid > 0 && (
+                      <button type="button" onClick={() => setPaymentAmount(invRemaining.toFixed(2))} className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                        Restante (R$ {invRemaining.toFixed(2)})
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setPaymentAmount(invTotal.toFixed(2))} className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                      Total (R$ {invTotal.toFixed(2)})
+                    </button>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            {/* Conta */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Conta utilizada</label>
+              <input
+                type="text"
+                value={paymentAccount}
+                onChange={(e) => setPaymentAccount(e.target.value)}
+                placeholder="Ex: Conta corrente Nubank"
+                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+              />
+            </div>
+
+            {/* Data */}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Data do pagamento</label>
+              <input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                required
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-700">
+              <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancelar</button>
+              <button
+                type="submit"
+                disabled={savingPayment || !paymentCardId}
+                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                {savingPayment ? "Registrando..." : "Confirmar pagamento"}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     )}

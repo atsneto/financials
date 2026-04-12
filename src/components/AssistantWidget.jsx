@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
-import jamesChatting from "../svg/bot.svg";
+import jamesChatting from "../svg/james.svg";
 import iconClose from "../svg/close.svg";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;

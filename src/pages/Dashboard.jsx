@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getEffectiveBillingDate } from "../utils/billing";
+import { getBank } from "../utils/banks";
 import { useTheme } from "../context/ThemeContext";
+import WelcomeTour from "../components/WelcomeTour";
 
 import {
   ResponsiveContainer,
@@ -21,15 +23,22 @@ import iconClose from "../svg/close.svg";
 import iconDanger from "../svg/danger.svg";
 import iconCreditCard from "../svg/credit-card.svg";
 import iconShoppingCart from "../svg/shopping-cart.svg";
+import iconDollar from "../svg/dollar.svg";
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [prevMonthTransactions, setPrevMonthTransactions] = useState([]);
   const [cards, setCards] = useState([]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showTour, setShowTour] = useState(searchParams.get("tour") === "1");
   const [userName, setUserName] = useState("");
   const [tipIndex, setTipIndex] = useState(0);
   const [showTip, setShowTip] = useState(true);
   const [tipPaused, setTipPaused] = useState(false);
+  const [mealVoucherCarryover, setMealVoucherCarryover] = useState(false);
+  const [allMealVoucherTxs, setAllMealVoucherTxs] = useState([]);
+  const [defClosingDay, setDefClosingDay] = useState(null);
 
   const profileRef = useRef(null);
   const navigate = useNavigate();
@@ -67,21 +76,28 @@ export default function Dashboard() {
       const loadStart = new Date(currentYear, currentMonth - 1, 1).toISOString();
       const loadEnd = new Date(currentYear, currentMonth + 2, 0, 23, 59, 59).toISOString();
 
-      const [{ data: allTxData }, { data: cardsData }] = await Promise.all([
+      const [{ data: allTxData }, { data: cardsData }, { data: settingsData }, { data: fpData }, { data: allVaTxData }] = await Promise.all([
         supabase.from("transactions").select("*").eq("user_id", user.id).gte("created_at", loadStart).lte("created_at", loadEnd).order("created_at", { ascending: false }),
-        supabase.from("credit_cards").select("id, name, last_four, closing_day").eq("user_id", user.id),
+        supabase.from("credit_cards").select("id, name, last_four, closing_day, bank_id").eq("user_id", user.id),
+        supabase.from("credit_card_settings").select("closing_day").eq("user_id", user.id).maybeSingle(),
+        supabase.from("financial_profile").select("meal_voucher_carryover").eq("user_id", user.id).maybeSingle(),
+        supabase.from("transactions").select("*").eq("user_id", user.id).eq("payment_method", "meal_voucher").order("created_at", { ascending: false }),
       ]);
 
       const loadedCards = cardsData || [];
       const allTxs = allTxData || [];
+      const defClosing = settingsData?.closing_day || null;
+      setDefClosingDay(defClosing);
+      setMealVoucherCarryover(fpData?.meal_voucher_carryover ?? false);
+      setAllMealVoucherTxs(allVaTxData || []);
 
       // Filter by effective billing date
       const thisTxs = allTxs.filter(t => {
-        const d = getEffectiveBillingDate(t, loadedCards);
+        const d = getEffectiveBillingDate(t, loadedCards, defClosing);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
       });
       const prevTxs = allTxs.filter(t => {
-        const d = getEffectiveBillingDate(t, loadedCards);
+        const d = getEffectiveBillingDate(t, loadedCards, defClosing);
         return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
       });
 
@@ -95,8 +111,8 @@ export default function Dashboard() {
   // =====================
   // CÁLCULOS MÊS ATUAL
   // =====================
-  const income = transactions.filter(t => t.type === "income").reduce((acc, t) => acc + Number(t.amount), 0);
-  const expense = transactions.filter(t => t.type === "expense").reduce((acc, t) => acc + Number(t.amount), 0);
+  const income = transactions.filter(t => t.type === "income" && t.payment_method !== "meal_voucher").reduce((acc, t) => acc + Number(t.amount), 0);
+  const expense = transactions.filter(t => t.type === "expense" && t.payment_method !== "meal_voucher").reduce((acc, t) => acc + Number(t.amount), 0);
   const balance = income - expense;
 
   // Conta corrente (debit_pix ou sem método definido)
@@ -110,11 +126,29 @@ export default function Dashboard() {
   // Vale alimentação
   const vaIncome = transactions.filter(t => t.type === "income" && t.payment_method === "meal_voucher").reduce((a, t) => a + Number(t.amount), 0);
   const vaExpense = transactions.filter(t => t.type === "expense" && t.payment_method === "meal_voucher").reduce((a, t) => a + Number(t.amount), 0);
-  const vaBalance = vaIncome - vaExpense;
+
+  // Carryover: soma saldos de meses anteriores (mesma lógica de Transactions)
+  let vaPreviousBalance = 0;
+  if (mealVoucherCarryover) {
+    const currentMonthStart = new Date(currentYear, currentMonth, 1);
+    allMealVoucherTxs.forEach((t) => {
+      const d = getEffectiveBillingDate(t, cards, defClosingDay);
+      const txMonthStart = new Date(d.getFullYear(), d.getMonth(), 1);
+      if (txMonthStart >= currentMonthStart) return;
+      const amt = Number(t.amount || 0);
+      vaPreviousBalance += t.type === "income" ? amt : -amt;
+    });
+  }
+  const vaBalance = vaPreviousBalance + vaIncome - vaExpense;
 
   // Mês anterior
-  const prevExpense = prevMonthTransactions.filter(t => t.type === "expense").reduce((acc, t) => acc + Number(t.amount), 0);
-  const prevIncome = prevMonthTransactions.filter(t => t.type === "income").reduce((acc, t) => acc + Number(t.amount), 0);
+  const prevExpense = prevMonthTransactions.filter(t => t.type === "expense" && t.payment_method !== "meal_voucher").reduce((acc, t) => acc + Number(t.amount), 0);
+  const prevIncome = prevMonthTransactions.filter(t => t.type === "income" && t.payment_method !== "meal_voucher").reduce((acc, t) => acc + Number(t.amount), 0);
+
+  // Mês anterior por método
+  const prevCcExpense = prevMonthTransactions.filter(t => t.type === "expense" && (t.payment_method === "debit_pix" || !t.payment_method)).reduce((a, t) => a + Number(t.amount), 0);
+  const prevCreditCardBill = prevMonthTransactions.filter(t => t.type === "expense" && t.payment_method === "credit_card").reduce((a, t) => a + Number(t.amount), 0);
+  const prevVaExpense = prevMonthTransactions.filter(t => t.type === "expense" && t.payment_method === "meal_voucher").reduce((a, t) => a + Number(t.amount), 0);
 
   // =====================
   // TOP CATEGORIAS
@@ -177,8 +211,8 @@ export default function Dashboard() {
   const prevMonthName = new Date(prevMonth === 11 ? currentYear - 1 : currentYear, currentMonth === 0 ? 11 : currentMonth - 1, 1)
     .toLocaleDateString("pt-BR", { month: "short" });
   const comparisonData = [
-    { name: prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1, -1), receitas: prevIncome, gastos: prevExpense },
-    { name: monthName.charAt(0).toUpperCase() + monthName.slice(1, 3), receitas: income, gastos: expense },
+    { name: prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1, -1), contaCorrente: prevCcExpense, cartao: prevCreditCardBill, va: prevVaExpense },
+    { name: monthName.charAt(0).toUpperCase() + monthName.slice(1, 3), contaCorrente: ccExpense, cartao: creditCardBill, va: vaExpense },
   ];
 
   // =====================
@@ -238,6 +272,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-3 animate-fade-in">
+
+      {showTour && <WelcomeTour onFinish={() => { setShowTour(false); setSearchParams({}); }} />}
 
       {/* HEADER + TIP inline (desktop) */}
       <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-3">
@@ -303,7 +339,7 @@ export default function Dashboard() {
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-3">
             <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-amber-950/40 flex items-center justify-center">
-              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: iconAmber }} />
+              <img src={iconDollar} alt="" className="w-4 h-4" style={{ filter: iconAmber }} />
             </div>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Conta Corrente</p>
           </div>
@@ -333,20 +369,57 @@ export default function Dashboard() {
           <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${creditCardBill > 0 ? "text-red-500" : "text-slate-400 dark:text-slate-500"}`}>
             R$ {creditCardBill.toFixed(2)}
           </p>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400 dark:text-slate-500">Fatura do mês</span>
-              <span className="text-red-500 font-medium">-R$ {creditCardBill.toFixed(2)}</span>
+          {cards.length > 0 ? (
+            <div className="space-y-2">
+              {cards.map(card => {
+                const bank = getBank(card.bank_id);
+                const cardBill = transactions
+                  .filter(t => t.type === "expense" && t.payment_method === "credit_card" && t.credit_card_id === card.id)
+                  .reduce((a, t) => a + Number(t.amount), 0);
+                return (
+                  <div key={card.id} className="flex items-center gap-2">
+                    {bank ? (
+                      <div className="w-5 h-5 flex-shrink-0 rounded bg-white border border-slate-200 dark:border-slate-600 flex items-center justify-center p-0.5">
+                        <img src={bank.logo} alt={bank.label} className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                      <img src={iconCreditCard} alt="" className="w-4 h-4 flex-shrink-0" style={{ filter: iconAmber }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate">
+                          {card.name}{card.last_four ? ` •••• ${card.last_four}` : ""}
+                        </span>
+                        <span className={`text-xs font-medium flex-shrink-0 ml-2 ${cardBill > 0 ? "text-red-500" : "text-slate-400 dark:text-slate-500"}`}>
+                          R$ {cardBill.toFixed(2)}
+                        </span>
+                      </div>
+                      {creditCardBill > 0 && (
+                        <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1 mt-1">
+                          <div className="h-1 rounded-full bg-red-400" style={{ width: `${Math.min(100, (cardBill / creditCardBill) * 100)}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            {income > 0 && (
+          ) : (
+            <div className="space-y-1">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400 dark:text-slate-500">% da renda</span>
-                <span className={`font-medium ${creditCardBill / income > 0.5 ? "text-red-500" : "text-slate-600 dark:text-slate-300"}`}>
-                  {income > 0 ? `${((creditCardBill / income) * 100).toFixed(0)}%` : "—"}
-                </span>
+                <span className="text-slate-400 dark:text-slate-500">Fatura do mês</span>
+                <span className="text-red-500 font-medium">-R$ {creditCardBill.toFixed(2)}</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+          {income > 0 && (
+            <div className="flex justify-between text-xs mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <span className="text-slate-400 dark:text-slate-500">% da renda</span>
+              <span className={`font-medium ${creditCardBill / income > 0.5 ? "text-red-500" : "text-slate-600 dark:text-slate-300"}`}>
+                {`${((creditCardBill / income) * 100).toFixed(0)}%`}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Vale Alimentação */}
@@ -357,7 +430,7 @@ export default function Dashboard() {
             </div>
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vale Alimentação</p>
           </div>
-          {vaIncome === 0 && vaExpense === 0 ? (
+          {vaIncome === 0 && vaExpense === 0 && vaPreviousBalance === 0 ? (
             <p className="text-sm text-slate-400 dark:text-slate-500 mt-2 text-center sm:text-left">Nenhuma movimentação com VA este mês.</p>
           ) : (
             <>
@@ -365,6 +438,12 @@ export default function Dashboard() {
                 R$ {vaBalance.toFixed(2)}
               </p>
               <div className="space-y-1">
+                {vaPreviousBalance !== 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400 dark:text-slate-500">Saldo anterior</span>
+                    <span className={`font-medium ${vaPreviousBalance >= 0 ? "text-blue-500" : "text-red-500"}`}>{vaPreviousBalance >= 0 ? "+" : "-"}R$ {Math.abs(vaPreviousBalance).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-400 dark:text-slate-500">Entradas</span>
                   <span className="text-emerald-600 font-medium">+R$ {vaIncome.toFixed(2)}</span>
@@ -448,18 +527,27 @@ export default function Dashboard() {
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: isDark ? "#64748b" : "#94a3b8" }} />
                   <YAxis tick={{ fontSize: 10, fill: isDark ? "#64748b" : "#94a3b8" }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`} width={50} />
                   <Tooltip content={<CompTooltip />} />
-                  <Bar dataKey="receitas" name="Receitas" fill="#10b981" radius={[4,4,0,0]} maxBarSize={40} />
-                  <Bar dataKey="gastos" name="Gastos" fill="#f87171" radius={[4,4,0,0]} maxBarSize={40} />
+                  <Bar dataKey="contaCorrente" name="Conta Corrente" fill="#6366f1" radius={[4,4,0,0]} maxBarSize={40} />
+                  <Bar dataKey="cartao" name="Cartão de Crédito" fill="#f87171" radius={[4,4,0,0]} maxBarSize={40} />
+                  <Bar dataKey="va" name="Vale Alimentação" fill="#f59e0b" radius={[4,4,0,0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            {prevExpense > 0 && expense > 0 && (
-              <p className={`text-xs mt-2 font-medium text-center sm:text-left ${expense > prevExpense ? "text-red-500" : "text-emerald-600"}`}>
-                {expense > prevExpense
-                  ? `↑ Gastos ${(((expense / prevExpense) - 1) * 100).toFixed(0)}% maiores que o mês passado`
-                  : `↓ Gastos ${(((prevExpense / expense) - 1) * 100).toFixed(0)}% menores que o mês passado`}
-              </p>
-            )}
+            {(() => {
+              const totalPrev = prevCcExpense + prevCreditCardBill + prevVaExpense;
+              const totalCurr = ccExpense + creditCardBill + vaExpense;
+              if (totalPrev > 0 && totalCurr > 0) {
+                const isHigher = totalCurr > totalPrev;
+                return (
+                  <p className={`text-xs mt-2 font-medium text-center sm:text-left ${isHigher ? "text-red-500" : "text-emerald-600"}`}>
+                    {isHigher
+                      ? `↑ Gastos totais ${(((totalCurr / totalPrev) - 1) * 100).toFixed(0)}% maiores que o mês passado`
+                      : `↓ Gastos totais ${(((totalPrev / totalCurr) - 1) * 100).toFixed(0)}% menores que o mês passado`}
+                  </p>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           {/* Top categorias */}

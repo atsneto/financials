@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useJames } from "../context/AIContext";
 import { useTheme } from "../context/ThemeContext";
-import jamesAvatar from "../svg/bot.svg";
+import jamesAvatar from "../svg/james.svg";
 import iconTrendingDown from "../svg/trending-down.svg";
 import iconDanger from "../svg/danger.svg";
 import iconDollar from "../svg/dollar.svg";
@@ -121,7 +121,7 @@ export default function James() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 shadow">
+          <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 shadow border-2 border-transparent dark:border-amber-500/60">
             <img src={jamesAvatar} alt="James" className="w-full h-full object-cover" />
           </div>
           <div>
