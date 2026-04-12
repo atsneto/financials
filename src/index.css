@@ -83,6 +83,35 @@ input[type="password"]::-webkit-textfield-decoration-container {
 	display: none;
 }
 
+/* ── iOS input fixes ──────────────────────────────────────────────── */
+/* Prevent iOS auto-zoom on focus (requires >= 16px) and normalize appearance */
+input,
+textarea,
+select {
+  font-size: 16px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 0; /* Remove iOS default rounded borders */
+}
+
+/* Restore border-radius via Tailwind (the reset above prevents the iOS pill shape) */
+input[type="checkbox"],
+input[type="radio"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Remove number spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

@@ -625,7 +625,6 @@ export default function Investiments() {
               <input
                 type="number" value={f.value} onChange={(e) => f.set(e.target.value)} step={f.step}
                 className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                style={{ fontSize: "16px" }}
               />
             </div>
           ))}

@@ -908,7 +908,6 @@ export default function CreditCard() {
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  style={{ fontSize: "16px" }}
                   required
                 />
                 {invoiceRemaining > 0 && (

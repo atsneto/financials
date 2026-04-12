@@ -264,7 +264,6 @@ export default function Settings() {
                   value={monthlyIncome}
                   onChange={(e) => setMonthlyIncome(e.target.value)}
                   className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  style={{ fontSize: "16px" }}
                 />
               </div>
             </SectionCard>
@@ -292,7 +291,6 @@ export default function Settings() {
                         value={mealVoucherMonthlyAmount}
                         onChange={(e) => setMealVoucherMonthlyAmount(e.target.value)}
                         className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        style={{ fontSize: "16px" }}
                       />
                     </div>
                     <Toggle
@@ -390,23 +388,23 @@ export default function Settings() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="sm:col-span-2">
                         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nome do cartão *</label>
-                        <input type="text" placeholder="Ex: Nubank Ultravioleta" value={cardDraft.name} onChange={e => setCardDraft(d => ({ ...d, name: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" style={{ fontSize: "16px" }} />
+                        <input type="text" placeholder="Ex: Nubank Ultravioleta" value={cardDraft.name} onChange={e => setCardDraft(d => ({ ...d, name: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Últimos 4 dígitos</label>
-                        <input type="text" placeholder="Ex: 4521" maxLength={4} value={cardDraft.last_four || ""} onChange={e => setCardDraft(d => ({ ...d, last_four: e.target.value.replace(/\D/g, "") }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" style={{ fontSize: "16px" }} />
+                        <input type="text" placeholder="Ex: 4521" maxLength={4} value={cardDraft.last_four || ""} onChange={e => setCardDraft(d => ({ ...d, last_four: e.target.value.replace(/\D/g, "") }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Limite (R$)</label>
-                        <input type="number" min="0" step="0.01" placeholder="0,00" value={cardDraft.credit_limit || ""} onChange={e => setCardDraft(d => ({ ...d, credit_limit: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" style={{ fontSize: "16px" }} />
+                        <input type="number" min="0" step="0.01" placeholder="0,00" value={cardDraft.credit_limit || ""} onChange={e => setCardDraft(d => ({ ...d, credit_limit: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Dia de fechamento</label>
-                        <input type="number" min="1" max="31" placeholder="Ex: 25" value={cardDraft.closing_day || ""} onChange={e => setCardDraft(d => ({ ...d, closing_day: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" style={{ fontSize: "16px" }} />
+                        <input type="number" min="1" max="31" placeholder="Ex: 25" value={cardDraft.closing_day || ""} onChange={e => setCardDraft(d => ({ ...d, closing_day: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Dia de vencimento</label>
-                        <input type="number" min="1" max="31" placeholder="Ex: 5" value={cardDraft.due_day || ""} onChange={e => setCardDraft(d => ({ ...d, due_day: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" style={{ fontSize: "16px" }} />
+                        <input type="number" min="1" max="31" placeholder="Ex: 5" value={cardDraft.due_day || ""} onChange={e => setCardDraft(d => ({ ...d, due_day: e.target.value }))} className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                       </div>
                     </div>
                     {cardError && <p className="text-xs text-red-600">{cardError}</p>}
@@ -501,7 +499,6 @@ export default function Settings() {
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
                     className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    style={{ fontSize: "16px" }}
                   />
                 </div>
                 <div>
@@ -512,7 +509,6 @@ export default function Settings() {
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    style={{ fontSize: "16px" }}
                   />
                 </div>
                 {passwordMsg && (

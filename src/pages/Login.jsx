@@ -82,7 +82,6 @@ export default function Login() {
                 className={`w-full px-3 py-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border ${
                   errors.email ? "border-red-400" : "border-slate-200 dark:border-slate-700"
                 } focus:outline-none focus:ring-2 ${errors.email ? "focus:ring-red-500" : "focus:ring-primary-500"} focus:border-transparent text-sm`}
-                style={{ fontSize: "16px" }}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
@@ -100,7 +99,6 @@ export default function Login() {
                   className={`w-full px-3 pr-10 py-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border ${
                     errors.password ? "border-red-400" : "border-slate-200 dark:border-slate-700"
                   } focus:outline-none focus:ring-2 ${errors.password ? "focus:ring-red-500" : "focus:ring-primary-500"} focus:border-transparent text-sm`}
-                  style={{ fontSize: "16px" }}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
