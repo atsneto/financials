@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [prevMonthTransactions, setPrevMonthTransactions] = useState([]);
   const [cards, setCards] = useState([]);
+  const [allLoadedTxs, setAllLoadedTxs] = useState([]);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [showTour, setShowTour] = useState(searchParams.get("tour") === "1");
@@ -61,6 +62,8 @@ export default function Dashboard() {
   const monthName = now.toLocaleDateString("pt-BR", { month: "long" });
   const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+  const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
 
   useEffect(() => {
     async function loadData() {
@@ -102,6 +105,7 @@ export default function Dashboard() {
       });
 
       setCards(loadedCards);
+      setAllLoadedTxs(allTxs);
       setTransactions(thisTxs);
       setPrevMonthTransactions(prevTxs);
     }
@@ -122,6 +126,36 @@ export default function Dashboard() {
 
   // Cartão de crédito
   const creditCardBill = transactions.filter(t => t.type === "expense" && t.payment_method === "credit_card").reduce((a, t) => a + Number(t.amount), 0);
+
+  // Fatura aberta (atual) por cartão — baseada no dia de fechamento
+  const monthLabels = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  function getOpenInvoicePeriod(card) {
+    const closingDay = card?.closing_day
+      ? parseInt(card.closing_day, 10)
+      : (defClosingDay ? parseInt(defClosingDay, 10) : null);
+    if (!closingDay) return { month: currentMonth, year: currentYear };
+    if (today >= closingDay) {
+      // Fatura do mês atual já fechou → a fatura aberta é a do próximo mês
+      const next = currentMonth + 1;
+      return next > 11
+        ? { month: 0, year: currentYear + 1 }
+        : { month: next, year: currentYear };
+    }
+    return { month: currentMonth, year: currentYear };
+  }
+
+  function getCardOpenInvoice(card) {
+    const period = getOpenInvoicePeriod(card);
+    return allLoadedTxs
+      .filter(t => {
+        if (t.payment_method !== "credit_card" || t.credit_card_id !== card.id || t.type !== "expense") return false;
+        const d = getEffectiveBillingDate(t, cards, defClosingDay);
+        return d.getMonth() === period.month && d.getFullYear() === period.year;
+      })
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+  }
+
+  const openInvoiceTotal = cards.reduce((sum, card) => sum + getCardOpenInvoice(card), 0);
 
   // Vale alimentação
   const vaIncome = transactions.filter(t => t.type === "income" && t.payment_method === "meal_voucher").reduce((a, t) => a + Number(t.amount), 0);
@@ -149,6 +183,15 @@ export default function Dashboard() {
   const prevCcExpense = prevMonthTransactions.filter(t => t.type === "expense" && (t.payment_method === "debit_pix" || !t.payment_method)).reduce((a, t) => a + Number(t.amount), 0);
   const prevCreditCardBill = prevMonthTransactions.filter(t => t.type === "expense" && t.payment_method === "credit_card").reduce((a, t) => a + Number(t.amount), 0);
   const prevVaExpense = prevMonthTransactions.filter(t => t.type === "expense" && t.payment_method === "meal_voucher").reduce((a, t) => a + Number(t.amount), 0);
+
+  // Próximo mês
+  const nextMonthTransactions = allLoadedTxs.filter(t => {
+    const d = getEffectiveBillingDate(t, cards, defClosingDay);
+    return d.getMonth() === nextMonth && d.getFullYear() === nextYear;
+  });
+  const nextCcExpense = nextMonthTransactions.filter(t => t.type === "expense" && (t.payment_method === "debit_pix" || !t.payment_method)).reduce((a, t) => a + Number(t.amount), 0);
+  const nextCreditCardBill = nextMonthTransactions.filter(t => t.type === "expense" && t.payment_method === "credit_card").reduce((a, t) => a + Number(t.amount), 0);
+  const nextVaExpense = nextMonthTransactions.filter(t => t.type === "expense" && t.payment_method === "meal_voucher").reduce((a, t) => a + Number(t.amount), 0);
 
   // =====================
   // TOP CATEGORIAS
@@ -208,11 +251,14 @@ export default function Dashboard() {
   // =====================
   // COMPARAÇÃO MENSAL
   // =====================
-  const prevMonthName = new Date(prevMonth === 11 ? currentYear - 1 : currentYear, currentMonth === 0 ? 11 : currentMonth - 1, 1)
-    .toLocaleDateString("pt-BR", { month: "short" });
+  const fmtMonth = (m, y) => new Date(y, m, 1).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const prevMonthName = fmtMonth(prevMonth, prevYear);
+  const nextMonthName = fmtMonth(nextMonth, nextYear);
   const comparisonData = [
-    { name: prevMonthName.charAt(0).toUpperCase() + prevMonthName.slice(1, -1), contaCorrente: prevCcExpense, cartao: prevCreditCardBill, va: prevVaExpense },
-    { name: monthName.charAt(0).toUpperCase() + monthName.slice(1, 3), contaCorrente: ccExpense, cartao: creditCardBill, va: vaExpense },
+    { name: capFirst(prevMonthName), contaCorrente: prevCcExpense, cartao: prevCreditCardBill, va: prevVaExpense },
+    { name: capFirst(monthName.slice(0, 3)), contaCorrente: ccExpense, cartao: creditCardBill, va: vaExpense, isCurrent: true },
+    { name: capFirst(nextMonthName), contaCorrente: nextCcExpense, cartao: nextCreditCardBill, va: nextVaExpense },
   ];
 
   // =====================
@@ -364,18 +410,18 @@ export default function Dashboard() {
             <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-amber-950/40 flex items-center justify-center">
               <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: iconAmber }} />
             </div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cartão de Crédito</p>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fatura Atual</p>
           </div>
-          <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${creditCardBill > 0 ? "text-red-500" : "text-slate-400 dark:text-slate-500"}`}>
-            R$ {creditCardBill.toFixed(2)}
+          <p className={`text-2xl font-semibold mb-3 text-center sm:text-left ${openInvoiceTotal > 0 ? "text-red-500" : "text-slate-400 dark:text-slate-500"}`}>
+            R$ {openInvoiceTotal.toFixed(2)}
           </p>
           {cards.length > 0 ? (
             <div className="space-y-2">
               {cards.map(card => {
                 const bank = getBank(card.bank_id);
-                const cardBill = transactions
-                  .filter(t => t.type === "expense" && t.payment_method === "credit_card" && t.credit_card_id === card.id)
-                  .reduce((a, t) => a + Number(t.amount), 0);
+                const cardBill = getCardOpenInvoice(card);
+                const period = getOpenInvoicePeriod(card);
+                const invoiceLabel = `${monthLabels[period.month]}/${period.year}`;
                 return (
                   <div key={card.id} className="flex items-center gap-2">
                     {bank ? (
@@ -394,11 +440,14 @@ export default function Dashboard() {
                           R$ {cardBill.toFixed(2)}
                         </span>
                       </div>
-                      {creditCardBill > 0 && (
-                        <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1 mt-1">
-                          <div className="h-1 rounded-full bg-red-400" style={{ width: `${Math.min(100, (cardBill / creditCardBill) * 100)}%` }} />
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">Fatura {invoiceLabel}</span>
+                        {openInvoiceTotal > 0 && (
+                          <div className="flex-1 ml-2 bg-slate-100 dark:bg-slate-700 rounded-full h-1">
+                            <div className="h-1 rounded-full bg-red-400" style={{ width: `${Math.min(100, (cardBill / openInvoiceTotal) * 100)}%` }} />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -407,16 +456,16 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400 dark:text-slate-500">Fatura do mês</span>
-                <span className="text-red-500 font-medium">-R$ {creditCardBill.toFixed(2)}</span>
+                <span className="text-slate-400 dark:text-slate-500">Fatura aberta</span>
+                <span className="text-red-500 font-medium">-R$ {openInvoiceTotal.toFixed(2)}</span>
               </div>
             </div>
           )}
           {income > 0 && (
             <div className="flex justify-between text-xs mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
               <span className="text-slate-400 dark:text-slate-500">% da renda</span>
-              <span className={`font-medium ${creditCardBill / income > 0.5 ? "text-red-500" : "text-slate-600 dark:text-slate-300"}`}>
-                {`${((creditCardBill / income) * 100).toFixed(0)}%`}
+              <span className={`font-medium ${openInvoiceTotal / income > 0.5 ? "text-red-500" : "text-slate-600 dark:text-slate-300"}`}>
+                {`${((openInvoiceTotal / income) * 100).toFixed(0)}%`}
               </span>
             </div>
           )}
@@ -519,7 +568,7 @@ export default function Dashboard() {
           {/* Comparação mensal */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-0.5 text-center sm:text-left">Comparação mensal</h3>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Mês anterior vs atual</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">Mês passado, atual e próximo</p>
             <div className="h-36">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={comparisonData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -541,8 +590,8 @@ export default function Dashboard() {
                 return (
                   <p className={`text-xs mt-2 font-medium text-center sm:text-left ${isHigher ? "text-red-500" : "text-emerald-600"}`}>
                     {isHigher
-                      ? `↑ Gastos totais ${(((totalCurr / totalPrev) - 1) * 100).toFixed(0)}% maiores que o mês passado`
-                      : `↓ Gastos totais ${(((totalPrev / totalCurr) - 1) * 100).toFixed(0)}% menores que o mês passado`}
+                      ? `↑ Gastos ${(((totalCurr / totalPrev) - 1) * 100).toFixed(0)}% maiores que o mês passado`
+                      : `↓ Gastos ${(((totalPrev / totalCurr) - 1) * 100).toFixed(0)}% menores que o mês passado`}
                   </p>
                 );
               }

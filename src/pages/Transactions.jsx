@@ -26,6 +26,7 @@ export default function Transactions() {
   const iconAmber = isDark
     ? "brightness(0) saturate(100%) invert(80%) sepia(85%) saturate(900%) hue-rotate(5deg) brightness(105%)"
     : "brightness(0) saturate(100%)";
+  const monthNames = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   const [transactions, setTransactions] = useState([]);
   const [filter, setFilter] = useState("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -837,14 +838,6 @@ return (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
           Nova transação
         </button>
-        {cards.length > 0 && (
-          <button onClick={openPaymentModal} className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            Pagar fatura
-          </button>
-        )}
         <button onClick={generatePDF} className="inline-flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           PDF
@@ -875,6 +868,88 @@ return (
         <p className="text-xl font-semibold text-slate-800 dark:text-slate-200 mt-1">{monthTransactions.length}</p>
       </div>
     </section>
+
+    {/* FATURAS DOS CARTÕES */}
+    {cards.length > 0 && (
+      <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-amber-900/30 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-amber-950/40 flex items-center justify-center">
+              <img src={iconCreditCard} alt="" className="w-4 h-4" style={{ filter: isDark ? "brightness(0) saturate(100%) invert(72%) sepia(50%) saturate(500%) hue-rotate(2deg) brightness(104%) contrast(97%)" : undefined }} />
+            </div>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Faturas do mês</p>
+          </div>
+          <button
+            onClick={openPaymentModal}
+            className="text-xs text-emerald-600 hover:text-emerald-700 font-medium transition"
+          >
+            Pagar fatura
+          </button>
+        </div>
+        <p className={`text-2xl font-semibold mb-3 ${cards.reduce((s, c) => s + getInvoiceTotalForCard(c.id), 0) > 0 ? "text-red-500" : "text-slate-400 dark:text-slate-500"}`}>
+          R$ {cards.reduce((s, c) => s + getInvoiceTotalForCard(c.id), 0).toFixed(2)}
+        </p>
+        <div className="space-y-2">
+          {cards.map((card) => {
+            const bank = getBank(card.bank_id);
+            const invTotal = getInvoiceTotalForCard(card.id);
+            const invPaid = getInvoicePaidForCard(card.id);
+            const totalAll = cards.reduce((s, c) => s + getInvoiceTotalForCard(c.id), 0);
+            const status = invTotal === 0
+              ? "sem_fatura"
+              : invPaid >= invTotal
+                ? "paga"
+                : invPaid > 0
+                  ? "parcial"
+                  : "aberta";
+            return (
+              <div key={card.id} className="flex items-center gap-2">
+                {bank ? (
+                  <div className="w-5 h-5 flex-shrink-0 rounded bg-white border border-slate-200 dark:border-slate-600 flex items-center justify-center p-0.5">
+                    <img src={bank.logo} alt={bank.label} className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <img src={iconCreditCard} alt="" className="w-4 h-4 flex-shrink-0" style={{ filter: isDark ? "brightness(0) saturate(100%) invert(72%) sepia(50%) saturate(500%) hue-rotate(2deg) brightness(104%) contrast(97%)" : undefined }} />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate">
+                      {card.name}{card.last_four ? ` •••• ${card.last_four}` : ""}
+                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                        status === "paga"
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+                          : status === "parcial"
+                            ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+                            : status === "aberta"
+                              ? "bg-red-50 dark:bg-red-950/40 text-red-500 dark:text-red-400"
+                              : "bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500"
+                      }`}>
+                        {status === "paga" ? "Paga" : status === "parcial" ? "Parcial" : status === "aberta" ? "Aberta" : "—"}
+                      </span>
+                      <span className={`text-xs font-medium ${invTotal > 0 ? "text-red-500" : "text-slate-400 dark:text-slate-500"}`}>
+                        R$ {invTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {invPaid > 0 && invTotal > 0 ? `Pago R$ ${invPaid.toFixed(2)}` : `Fatura ${monthNames[filterMonth]}/${filterYear}`}
+                    </span>
+                    {totalAll > 0 && (
+                      <div className="flex-1 ml-2 bg-slate-100 dark:bg-slate-700 rounded-full h-1">
+                        <div className="h-1 rounded-full bg-red-400" style={{ width: `${Math.min(100, (invTotal / totalAll) * 100)}%` }} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    )}
 
     {/* DATE + TYPE FILTERS */}
     <div className="flex flex-wrap items-center gap-3">

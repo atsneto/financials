@@ -37,10 +37,11 @@ export default function AssistantWidget() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
-    const [{ data: txData }, { data: invData }, { data: goalData }] = await Promise.all([
+    const [{ data: txData }, { data: invData }, { data: goalData }, { data: cardData }] = await Promise.all([
       supabase.from("transactions").select("*").eq("user_id", user.id).gte("created_at", monthStart).lte("created_at", monthEnd),
       supabase.from("investments").select("*").eq("user_id", user.id),
       supabase.from("goals").select("*").eq("user_id", user.id),
+      supabase.from("credit_cards").select("*").eq("user_id", user.id),
     ]);
 
     const transactions = txData || [];
@@ -66,6 +67,24 @@ export default function AssistantWidget() {
       .filter(t => t.payment_method === "credit_card")
       .reduce((s, t) => s + Number(t.amount), 0);
 
+    const cards = cardData || [];
+    const creditCards = cards.map(card => {
+      const spent = expenses
+        .filter(t => t.payment_method === "credit_card" && t.credit_card_id === card.id)
+        .reduce((s, t) => s + Number(t.amount), 0);
+      const limit = Number(card.credit_limit || 0);
+      return {
+        name: card.name,
+        last_four: card.last_four || null,
+        bank: card.bank_id || null,
+        limit,
+        spent,
+        usage: limit > 0 ? `${((spent / limit) * 100).toFixed(0)}%` : "—",
+        closing_day: card.closing_day || null,
+        due_day: card.due_day || null,
+      };
+    });
+
     const monthName = now.toLocaleDateString("pt-BR", { month: "long" });
 
     setFinancialContext({
@@ -79,6 +98,7 @@ export default function AssistantWidget() {
       investmentCount: (invData || []).length,
       goalCount: (goalData || []).length,
       creditCardBill,
+      creditCards,
       monthName,
     });
   }
