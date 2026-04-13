@@ -89,17 +89,40 @@ input,
 textarea,
 select {
   font-size: 16px;
+}
+
+/* Remove native styling except for date/time pickers (keep native iOS picker) */
+input:not([type="date"]):not([type="time"]):not([type="datetime-local"]):not([type="month"]):not([type="week"]),
+textarea {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  border-radius: 0; /* Remove iOS default rounded borders */
 }
 
-/* Restore border-radius via Tailwind (the reset above prevents the iOS pill shape) */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Stabilize input height to prevent resize on iOS when toggling password visibility */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"] {
+  line-height: 1.5;
+  min-height: 44px;
+}
+
+/* Restore checkbox/radio native appearance */
 input[type="checkbox"],
 input[type="radio"] {
   -webkit-appearance: none;
   appearance: none;
+  min-height: auto;
 }
 
 /* Remove number spinners */

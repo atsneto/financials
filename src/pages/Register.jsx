@@ -119,7 +119,7 @@ export default function Register() {
               <input
                 type="date"
                 max={new Date().toISOString().slice(0, 10)}
-                className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                className={`w-full px-3 py-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${!birthDate ? "text-slate-400 dark:text-slate-500" : ""}`}
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
                 disabled={loading}
@@ -142,31 +142,33 @@ export default function Register() {
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
 
-            <div className="relative">
+            <div>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Senha</label>
-              <input
-                type={showPwd ? "text" : "password"}
-                placeholder="Sua senha"
-                className={`w-full px-3 pr-10 py-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border ${
-                  errors.password ? "border-red-400" : "border-slate-200 dark:border-slate-700"
-                } focus:outline-none focus:ring-2 ${errors.password ? "focus:ring-red-500" : "focus:ring-primary-500"} focus:border-transparent text-sm`}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPwd((v) => !v)}
-                className="absolute right-3 top-9 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition"
-                aria-label={showPwd ? "Ocultar senha" : "Mostrar senha"}
-              >
-                {showPwd ? (
-                  <img src={iconEye} alt="" className="h-4 w-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
-                ) : (
-                  <img src={iconEyeAlt} alt="" className="h-4 w-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
-                )}
-              </button>
+              <div className="relative">
+                <input
+                  type={showPwd ? "text" : "password"}
+                  placeholder="Sua senha"
+                  className={`w-full px-3 pr-10 py-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 border ${
+                    errors.password ? "border-red-400" : "border-slate-200 dark:border-slate-700"
+                  } focus:outline-none focus:ring-2 ${errors.password ? "focus:ring-red-500" : "focus:ring-primary-500"} focus:border-transparent text-sm`}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition"
+                  aria-label={showPwd ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPwd ? (
+                    <img src={iconEye} alt="" className="h-4 w-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
+                  ) : (
+                    <img src={iconEyeAlt} alt="" className="h-4 w-4" style={{ filter: "brightness(0) saturate(100%) opacity(0.5)" }} />
+                  )}
+                </button>
+              </div>
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
             </div>
 
