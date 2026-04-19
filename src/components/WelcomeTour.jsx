@@ -3,7 +3,7 @@ import iconHello from "../svg/hello.svg";
 import iconHome from "../svg/home.svg";
 import iconDollar from "../svg/dollar.svg";
 import iconTrophy from "../svg/trophy.svg";
-import iconJames from "../svg/james.svg";
+import iconJames from "../assets/james.svg";
 import iconOptions from "../svg/options.svg";
 import iconBolt from "../svg/bolt.svg";
 

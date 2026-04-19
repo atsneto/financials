@@ -19,10 +19,12 @@ export async function getConnectToken(itemId = null) {
 /**
  * Sincroniza transações de um item Pluggy com o Supabase.
  */
-export async function syncItem(itemId) {
-  const { data, error } = await supabase.functions.invoke("pluggy-sync", {
-    body: { action: "sync", itemId },
-  });
+export async function syncItem(itemId, creditCardId = null, bankId = null) {
+  const body = { action: "sync", itemId };
+  if (creditCardId) body.creditCardId = creditCardId;
+  if (bankId) body.bankId = bankId;
+
+  const { data, error } = await supabase.functions.invoke("pluggy-sync", { body });
 
   if (error) throw new Error(error.message || "Erro ao sincronizar");
   return data;

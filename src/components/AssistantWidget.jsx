@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
-import jamesChatting from "../svg/james.svg";
+import jamesChatting from "../assets/james.svg";
 import iconClose from "../svg/close.svg";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -176,7 +176,7 @@ export default function AssistantWidget() {
           <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-800 flex-shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
-                <img src={jamesChatting} alt="James" className="w-full h-full object-cover" />
+                <img src={jamesChatting} alt="James" className="w-full h-full object-cover scale-[1.3]" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">James</p>
@@ -197,7 +197,7 @@ export default function AssistantWidget() {
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "assistant" && (
                   <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mr-1.5 mt-1">
-                    <img src={jamesChatting} alt="James" className="w-full h-full object-cover" />
+                    <img src={jamesChatting} alt="James" className="w-full h-full object-cover scale-[1.3]" />
                   </div>
                 )}
                 <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
@@ -213,7 +213,7 @@ export default function AssistantWidget() {
             {isTyping && (
               <div className="flex justify-start items-center gap-1.5">
                 <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                  <img src={jamesChatting} alt="James" className="w-full h-full object-cover" />
+                  <img src={jamesChatting} alt="James" className="w-full h-full object-cover scale-[1.3]" />
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-2xl rounded-bl-sm">
                   <div className="flex gap-1 items-center h-3">
@@ -263,7 +263,7 @@ export default function AssistantWidget() {
             <img src={iconClose} alt="" className="w-5 h-5" style={{ filter: "brightness(0) invert(1)" }} />
           </div>
         ) : (
-          <img src={jamesChatting} alt="James" className="w-full h-full object-cover" />
+          <img src={jamesChatting} alt="James" className="w-full h-full object-cover scale-[1.3]" />
         )}
       </button>
     </div>

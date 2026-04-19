@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   getConnectToken,
   syncItem,
@@ -8,6 +8,8 @@ import {
 import { usePluggyConnect } from "../hooks/usePluggyConnect";
 import lawBuilding from "../svg/globe.svg";
 import { useTheme } from "../context/ThemeContext";
+import { supabase } from "../supabaseClient";
+import BANKS, { getBank } from "../utils/banks";
 
 export default function OpenFinance() {
   const { theme } = useTheme();
@@ -22,6 +24,13 @@ export default function OpenFinance() {
   const [connectToken, setConnectToken] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
+  const [creditCards, setCreditCards] = useState([]);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [pendingCreditCardId, setPendingCreditCardId] = useState(null);
+  const [pendingBankId, setPendingBankId] = useState(null);
+  const [bankSearch, setBankSearch] = useState("");
+  const pendingCreditCardIdRef = useRef(null);
+  const pendingBankIdRef = useRef(null);
 
   // ── Carregar conexões ──────────────────────────────────
   const loadConnections = useCallback(async () => {
@@ -39,9 +48,24 @@ export default function OpenFinance() {
     loadConnections();
   }, [loadConnections]);
 
+  useEffect(() => {
+    async function loadCreditCards() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data } = await supabase
+        .from("credit_cards")
+        .select("id, name, last_four, bank_id")
+        .eq("user_id", session.user.id)
+        .order("name");
+      setCreditCards(data || []);
+    }
+    loadCreditCards();
+  }, []);
+
   // ── Pluggy Connect Widget ──────────────────────────────
   const handleSuccess = useCallback(
     async (data) => {
+      const creditCardId = pendingCreditCardIdRef.current;
       // Pluggy SDK v2 pode retornar { item: { id } } ou o item diretamente { id }
       const itemId = data?.item?.id || data?.id;
       if (!itemId) {
@@ -53,7 +77,8 @@ export default function OpenFinance() {
 
       setFeedback({ type: "info", message: "Sincronizando transações..." });
       try {
-        const result = await syncItem(itemId);
+        const bankId = pendingBankIdRef.current;
+      const result = await syncItem(itemId, creditCardId || null, bankId || null);
         const parts = [];
         if (result.transactionsImported > 0)
           parts.push(`${result.transactionsImported} transações`);
@@ -83,7 +108,6 @@ export default function OpenFinance() {
 
   const handleClose = useCallback(() => {
     setConnecting(false);
-    // Recarrega conexões ao fechar o widget (caso onSuccess tenha processado)
     loadConnections();
   }, [loadConnections]);
 
@@ -94,10 +118,26 @@ export default function OpenFinance() {
     onClose: handleClose,
   });
 
-  // ── Iniciar conexão ────────────────────────────────────
-  async function handleConnect() {
+  // ── Abre modal de seleção de cartão antes de conectar ─
+  function handleConnect() {
+    setPendingCreditCardId(null);
+    setPendingBankId(null);
+    setBankSearch("");
+    setShowConnectModal(true);
+  }
+
+  // Cartões filtrados pelo banco selecionado
+  const filteredCardsByBank = pendingBankId
+    ? creditCards.filter((c) => c.bank_id === pendingBankId)
+    : creditCards;
+
+  // ── Confirma seleção e inicia o widget ─────────────────
+  async function handleConfirmConnect() {
+    setShowConnectModal(false);
     setConnecting(true);
     setFeedback(null);
+    pendingCreditCardIdRef.current = pendingCreditCardId;
+    pendingBankIdRef.current = pendingBankId;
     try {
       const token = await getConnectToken();
       setConnectToken(token);
@@ -368,6 +408,141 @@ export default function OpenFinance() {
           </div>
         </div>
       </div>
+
+      {/* Modal: selecionar banco e cartão antes de conectar */}
+      {showConnectModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[2px] z-50">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-xl w-full max-w-md border border-slate-200 dark:border-slate-700 shadow-lg">
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">
+              Conectar via Open Finance
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Selecione o banco e, opcionalmente, o cartão de crédito para vincular.
+            </p>
+
+            {/* Seleção de banco */}
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 block">
+              Banco
+            </label>
+            <input
+              type="text"
+              placeholder="Buscar banco..."
+              value={bankSearch}
+              onChange={(e) => setBankSearch(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-300 mb-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 mb-4">
+              {BANKS
+                .filter((b) => b.label.toLowerCase().includes(bankSearch.toLowerCase()))
+                .map((bank) => (
+                  <button
+                    key={bank.id}
+                    onClick={() => {
+                      setPendingBankId(bank.id);
+                      const bankCards = creditCards.filter((c) => c.bank_id === bank.id);
+                      if (bankCards.length === 1) {
+                        setPendingCreditCardId(bankCards[0].id);
+                      } else {
+                        setPendingCreditCardId(null);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-sm transition ${
+                      pendingBankId === bank.id
+                        ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
+                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    <img
+                      src={bank.logo}
+                      alt={bank.label}
+                      className="w-7 h-7 rounded-md object-contain bg-white p-0.5 border border-slate-100 dark:border-slate-800 flex-shrink-0"
+                    />
+                    <span>{bank.label}</span>
+                  </button>
+                ))}
+            </div>
+
+            {/* Seleção de cartão */}
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 block">
+              Cartão de crédito {pendingBankId && filteredCardsByBank.length > 0 ? "" : "(opcional)"}
+            </label>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+              <button
+                onClick={() => setPendingCreditCardId(null)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-sm transition ${
+                  pendingCreditCardId === null
+                    ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
+                    : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`}
+              >
+                <div className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </div>
+                <span>Não vincular cartão</span>
+              </button>
+
+              {pendingBankId && filteredCardsByBank.length === 0 && (
+                <p className="text-xs text-slate-400 dark:text-slate-500 px-3 py-2">
+                  Nenhum cartão cadastrado para este banco.
+                </p>
+              )}
+
+              {filteredCardsByBank.map((card) => {
+                const bank = getBank(card.bank_id);
+                return (
+                  <button
+                    key={card.id}
+                    onClick={() => setPendingCreditCardId(card.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-sm transition ${
+                      pendingCreditCardId === card.id
+                        ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
+                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {bank ? (
+                      <img
+                        src={bank.logo}
+                        alt={bank.label}
+                        className="w-7 h-7 rounded-md object-contain bg-white p-0.5 border border-slate-100 dark:border-slate-800 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-md bg-primary-50 flex items-center justify-center flex-shrink-0">
+                        <span className="text-primary-600 font-semibold text-xs">
+                          {card.name[0]}
+                        </span>
+                      </div>
+                    )}
+                    <div className="text-left">
+                      <p className="font-medium leading-tight">{card.name}</p>
+                      {card.last_four && (
+                        <p className="text-xs opacity-60">•••• {card.last_four}</p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setShowConnectModal(false)}
+                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmConnect}
+                disabled={!pendingBankId}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Conectar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteModal && (

@@ -52,6 +52,7 @@ export default function Transactions() {
   const [bulkNewType, setBulkNewType] = useState("");
   const [bulkNewPayment, setBulkNewPayment] = useState("");
   const [bulkNewCreditCardId, setBulkNewCreditCardId] = useState("");
+  const [bulkPaymentCardId, setBulkPaymentCardId] = useState("");
   const [bulkSaving, setBulkSaving] = useState(false);
 
   // Seleção múltipla
@@ -88,6 +89,17 @@ export default function Transactions() {
   const now = new Date();
   const [filterMonth, setFilterMonth] = useState(now.getMonth());
   const [filterYear, setFilterYear] = useState(now.getFullYear());
+
+  const isCurrentMonth = filterMonth === now.getMonth() && filterYear === now.getFullYear();
+
+  function prevMonth() {
+    if (filterMonth === 0) { setFilterMonth(11); setFilterYear(y => y - 1); }
+    else setFilterMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (filterMonth === 11) { setFilterMonth(0); setFilterYear(y => y + 1); }
+    else setFilterMonth(m => m + 1);
+  }
 
   const navigate = useNavigate();
 
@@ -344,6 +356,7 @@ export default function Transactions() {
     setBulkNewType("");
     setBulkNewPayment("");
     setBulkNewCreditCardId("");
+    setBulkPaymentCardId("");
     setIsBulkModalOpen(true);
   }
 
@@ -353,9 +366,14 @@ export default function Transactions() {
     const { data: sessionData } = await supabase.auth.getSession();
     const user = sessionData.session.user;
 
+    const isInvoicePayment = bulkNewCategory === "Pagamento de fatura";
+
     const bulkUpdates = { title: bulkNewTitle.trim(), category: bulkNewCategory.trim() };
     if (bulkNewType) bulkUpdates.type = bulkNewType;
-    if (bulkNewPayment) {
+    if (isInvoicePayment) {
+      bulkUpdates.payment_method = "debit_pix";
+      bulkUpdates.credit_card_id = null;
+    } else if (bulkNewPayment) {
       bulkUpdates.payment_method = bulkNewPayment;
       bulkUpdates.credit_card_id = bulkNewPayment === "credit_card" && bulkNewCreditCardId ? bulkNewCreditCardId : null;
     }
@@ -365,6 +383,30 @@ export default function Transactions() {
       .update(bulkUpdates)
       .eq("user_id", user.id)
       .eq("title", bulkSourceTitle);
+
+    // Criar registros de pagamento de fatura para cada transação afetada
+    if (isInvoicePayment && bulkPaymentCardId) {
+      const { data: affectedTxs } = await supabase
+        .from("transactions")
+        .select("id, amount, created_at")
+        .eq("user_id", user.id)
+        .eq("title", bulkNewTitle.trim());
+
+      if (affectedTxs && affectedTxs.length > 0) {
+        const invoiceRows = affectedTxs.map((tx) => {
+          const d = new Date(tx.created_at);
+          return {
+            user_id: user.id,
+            credit_card_id: bulkPaymentCardId,
+            invoice_month: d.getMonth(),
+            invoice_year: d.getFullYear(),
+            amount_paid: Number(tx.amount),
+            payment_date: tx.created_at,
+          };
+        });
+        await supabase.from("invoice_payments").insert(invoiceRows);
+      }
+    }
 
     setBulkSaving(false);
     setIsBulkModalOpen(false);
@@ -431,7 +473,21 @@ export default function Transactions() {
 
   async function confirmDelete() {
     if (!txToDelete) return;
+    const { data: tx } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("id", txToDelete)
+      .single();
     await supabase.from("transactions").delete().eq("id", txToDelete);
+    if (tx?.category === "Pagamento de fatura") {
+      await supabase
+        .from("invoice_payments")
+        .delete()
+        .eq("user_id", tx.user_id)
+        .eq("credit_card_id", tx.credit_card_id)
+        .eq("amount_paid", tx.amount)
+        .eq("payment_date", tx.created_at);
+    }
     setIsDeleteModalOpen(false);
     setTxToDelete(null);
     window.dispatchEvent(new Event("transactions-updated"));
@@ -953,19 +1009,21 @@ return (
 
     {/* DATE + TYPE FILTERS */}
     <div className="flex flex-wrap items-center gap-3">
-      <select
-        value={`${filterYear}-${filterMonth}`}
-        onChange={(e) => {
-          const [y, m] = e.target.value.split("-").map(Number);
-          setFilterYear(y);
-          setFilterMonth(m);
-        }}
-        className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-      >
-        {availableMonths.map((m) => (
-          <option key={m.key} value={m.key}>{m.label}</option>
-        ))}
-      </select>
+      <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-1 py-1">
+        <button onClick={prevMonth} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 min-w-[110px] text-center">
+          {new Date(filterYear, filterMonth).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+        </span>
+        <button onClick={nextMonth} disabled={isCurrentMonth} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-30 disabled:cursor-not-allowed">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
       <div className="flex items-center gap-2">
       {['all','income','expense'].map((t) => (
         <button key={t} onClick={() => setFilter(t)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === t ? 'bg-primary-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:bg-slate-700'}`}>
@@ -1086,16 +1144,22 @@ return (
                       <span className="text-xs text-slate-300 dark:text-slate-600 flex-shrink-0">·</span>
                       <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">{new Date(tx.created_at).toLocaleDateString("pt-BR")}</span>
                     </div>
-                    {tx.payment_method === "credit_card" && (
-                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 mt-1 rounded-full bg-violet-50 text-violet-600 border border-violet-100 font-medium">
-                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                        <span className="truncate max-w-[120px] sm:max-w-none">
-                          {tx.credit_card_id && cards.find(c => c.id === tx.credit_card_id)
-                            ? cards.find(c => c.id === tx.credit_card_id).name
-                            : "Cartão de crédito"}
+                    {tx.payment_method === "credit_card" && (() => {
+                      const card = tx.credit_card_id ? cards.find(c => c.id === tx.credit_card_id) : null;
+                      const bank = card ? getBank(card.bank_id) : null;
+                      return (
+                        <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 mt-1 rounded-full bg-violet-50 text-violet-600 border border-violet-100 font-medium">
+                          {bank ? (
+                            <img src={bank.logo} alt={bank.label} className="w-3.5 h-3.5 rounded-sm object-contain bg-white flex-shrink-0" />
+                          ) : (
+                            <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                          )}
+                          <span className="truncate max-w-[120px] sm:max-w-none">
+                            {card ? card.name : "Cartão de crédito"}
+                          </span>
                         </span>
-                      </span>
-                    )}
+                      );
+                    })()}
                     {tx.payment_method === "debit_pix" && (
                       <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 mt-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 font-medium">
                         <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1425,15 +1489,67 @@ return (
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Nova categoria</label>
-                <input
-                  type="text"
+                <select
                   value={bulkNewCategory}
                   onChange={e => setBulkNewCategory(e.target.value)}
-                  placeholder="Ex: Alimentação"
                   className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-slate-100 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
-                />
+                >
+                  <option value="">Sem alteração</option>
+                  <option value="Alimentação">Alimentação</option>
+                  <option value="Mercado">Mercado</option>
+                  <option value="Delivery">Delivery</option>
+                  <option value="Transporte">Transporte</option>
+                  <option value="Saúde">Saúde</option>
+                  <option value="Educação">Educação</option>
+                  <option value="Lazer">Lazer</option>
+                  <option value="Moradia">Moradia</option>
+                  <option value="Vestuário">Vestuário</option>
+                  <option value="Assinaturas">Assinaturas</option>
+                  <option value="Salário">Salário</option>
+                  <option value="Transferência">Transferência</option>
+                  <option value="Pagamento de fatura">Pagamento de fatura</option>
+                  <option value="Outros">Outros</option>
+                </select>
               </div>
-              <div>
+
+              {bulkNewCategory === "Pagamento de fatura" && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Cartão da fatura</label>
+                  {cards.length === 0 ? (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 px-1">Nenhum cartão cadastrado.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {cards.map(card => { const bank = getBank(card.bank_id); return (
+                        <button
+                          key={card.id}
+                          type="button"
+                          onClick={() => setBulkPaymentCardId(card.id)}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-sm transition ${
+                            bulkPaymentCardId === card.id
+                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300"
+                              : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {bank ? (
+                            <img src={bank.logo} alt={bank.label} className="w-6 h-6 rounded object-contain bg-slate-50 dark:bg-slate-900 p-0.5 border border-slate-100 dark:border-slate-800 flex-shrink-0" />
+                          ) : (
+                            <div className="w-6 h-6 rounded bg-primary-50 flex items-center justify-center flex-shrink-0">
+                              <span className="text-primary-600 font-semibold text-xs">{card.name[0]}</span>
+                            </div>
+                          )}
+                          <span className="flex-1 text-left font-medium">{card.name}</span>
+                          {card.last_four && <span className="text-xs text-slate-400 dark:text-slate-500">•••• {card.last_four}</span>}
+                          {bulkPaymentCardId === card.id && (
+                            <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          )}
+                        </button>
+                      );})}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bulkNewCategory !== "Pagamento de fatura" && <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Tipo</label>
                 <select
                   value={bulkNewType}
@@ -1444,8 +1560,8 @@ return (
                   <option value="income">Receita</option>
                   <option value="expense">Despesa</option>
                 </select>
-              </div>
-              <div>
+              </div>}
+              {bulkNewCategory !== "Pagamento de fatura" && <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Meio de pagamento</label>
                 <select
                   value={bulkNewPayment}
@@ -1490,7 +1606,7 @@ return (
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
 
             <div className="flex justify-end gap-2 pt-4">

@@ -30,18 +30,17 @@ const CATEGORIES = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getDateRange(period, startDate, endDate) {
-  const now = new Date();
+function getDateRange(period, startDate, endDate, refDate = new Date()) {
   if (period === "monthly") {
     return {
-      start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10),
-      end:   new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10),
+      start: new Date(refDate.getFullYear(), refDate.getMonth(), 1).toISOString().slice(0, 10),
+      end:   new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0).toISOString().slice(0, 10),
     };
   }
   if (period === "weekly") {
-    const day  = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const mon  = new Date(now.getFullYear(), now.getMonth(), diff);
+    const day  = refDate.getDay();
+    const diff = refDate.getDate() - day + (day === 0 ? -6 : 1);
+    const mon  = new Date(refDate.getFullYear(), refDate.getMonth(), diff);
     return {
       start: mon.toISOString().slice(0, 10),
       end:   new Date(mon.getTime() + 6 * 86400000).toISOString().slice(0, 10),
@@ -50,8 +49,8 @@ function getDateRange(period, startDate, endDate) {
   return { start: startDate, end: endDate };
 }
 
-function calcProgress(goal, transactions) {
-  const { start, end } = getDateRange(goal.period, goal.start_date, goal.end_date);
+function calcProgress(goal, transactions, refDate) {
+  const { start, end } = getDateRange(goal.period, goal.start_date, goal.end_date, refDate);
   const filtered = transactions.filter((tx) => {
     const d = (tx.created_at || "").slice(0, 10);
     if (d < start || d > end) return false;
@@ -468,8 +467,8 @@ function GoalModal({ goal, onClose, onSaved }) {
 
 // ─── GoalCard ─────────────────────────────────────────────────────────────────
 
-function GoalCard({ goal, transactions, onEdit, onDelete, onDeposit }) {
-  const current  = calcProgress(goal, transactions);
+function GoalCard({ goal, transactions, refDate, onEdit, onDelete, onDeposit }) {
+  const current  = calcProgress(goal, transactions, refDate);
   const pct      = Math.min(100, Math.round((current / goal.target_amount) * 100));
   const isSave   = goal.type === "save";
   const isOver   = !isSave && pct >= 100;
@@ -617,6 +616,16 @@ export default function Goals() {
   const [modal, setModal]               = useState(null);
   const [deleteId, setDeleteId]         = useState(null);
   const [depositGoal, setDepositGoal]   = useState(null);
+  const [refDate, setRefDate]           = useState(() => new Date());
+
+  const isCurrentMonth = refDate.getMonth() === new Date().getMonth() && refDate.getFullYear() === new Date().getFullYear();
+
+  function prevMonth() {
+    setRefDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  }
+  function nextMonth() {
+    setRefDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  }
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -643,17 +652,17 @@ export default function Goals() {
 
   // ── Summary stats ──────────────────────────────────────────────────────────
   const saveGoals  = goals.filter((g) => g.type === "save");
-  const totalSaved = saveGoals.reduce((sum, g) => sum + calcProgress(g, transactions), 0);
+  const totalSaved = saveGoals.reduce((sum, g) => sum + calcProgress(g, transactions, refDate), 0);
   const totalTarget = saveGoals.reduce((sum, g) => sum + Number(g.target_amount), 0);
   const doneCount  = saveGoals.filter((g) => {
-    const p = calcProgress(g, transactions);
+    const p = calcProgress(g, transactions, refDate);
     return p >= Number(g.target_amount);
   }).length;
 
   // ── Alerts ─────────────────────────────────────────────────────────────────
   const alerts = goals.filter((g) => {
     if (g.type === "save") return false;
-    const pct = Math.round((calcProgress(g, transactions) / g.target_amount) * 100);
+    const pct = Math.round((calcProgress(g, transactions, refDate) / g.target_amount) * 100);
     return pct >= 80;
   });
 
@@ -673,15 +682,33 @@ export default function Goals() {
           <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Metas financeiras</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Acompanhe seus objetivos e mantenha o controle</p>
         </div>
-        <button
-          onClick={() => setModal({})}
-          className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-2 self-start sm:self-auto"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Nova meta
-        </button>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {/* Navegação de mês */}
+          <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-1 py-1">
+            <button onClick={prevMonth} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 min-w-[110px] text-center">
+              {refDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            </span>
+            <button onClick={nextMonth} disabled={isCurrentMonth} className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-30 disabled:cursor-not-allowed">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          <button
+            onClick={() => setModal({})}
+            className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Nova meta
+          </button>
+        </div>
       </div>
 
       {/* Summary — só aparece se há metas */}
@@ -756,6 +783,7 @@ export default function Goals() {
               key={g.id}
               goal={g}
               transactions={transactions}
+              refDate={refDate}
               onEdit={(g) => setModal({ goal: g })}
               onDelete={(id) => setDeleteId(id)}
               onDeposit={(g) => setDepositGoal(g)}

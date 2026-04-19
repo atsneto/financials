@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useJames } from "../context/AIContext";
 import { useTheme } from "../context/ThemeContext";
-import jamesAvatar from "../svg/james.svg";
+import jamesAvatar from "../assets/james.svg";
 import iconTrendingDown from "../svg/trending-down.svg";
 import iconDanger from "../svg/danger.svg";
 import iconDollar from "../svg/dollar.svg";
@@ -119,21 +119,20 @@ export default function James() {
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 shadow border-2 border-transparent dark:border-amber-500/60">
-            <img src={jamesAvatar} alt="James" className="w-full h-full object-cover" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-slate-800 dark:text-slate-200">James</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{today}</p>
-          </div>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-amber-900/30 px-5 py-4 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 shadow-md border border-slate-100 dark:border-amber-700/40 bg-white dark:bg-slate-900">
+          <img src={jamesAvatar} alt="James" className="w-full h-full object-cover scale-[1.3]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-slate-400 dark:text-slate-500 capitalize mb-0.5">{today}</p>
+          <h1 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-tight">James</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Seu assistente financeiro pessoal</p>
         </div>
         <button
           onClick={refresh}
           disabled={status === "loading"}
-          className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-40"
-          title="Atualizar"
+          className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition disabled:opacity-40 flex-shrink-0"
+          title="Atualizar análise"
         >
           <svg className={`w-4 h-4 ${status === "loading" ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
