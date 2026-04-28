@@ -4,6 +4,7 @@ import { motion, useInView } from "framer-motion";
 import { supabase } from "../supabaseClient";
 import Logo from "../components/Logo";
 import dashboardPreview from "../assets/preview.png";
+import heroImage from "../assets/hero-section.png";
 import iconPoll from "../svg/poll.svg";
 import iconCreditCard from "../svg/credit-card.svg";
 import iconTrending from "../svg/trending.svg";
@@ -14,6 +15,7 @@ import iconArrowRight from "../svg/arrow-right.svg";
 import iconShield from "../svg/shield.svg";
 import iconSmartphone from "../svg/smartphone.svg";
 import iconCheck from "../svg/check.svg";
+import { useThemeLock } from "../context/ThemeContext";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 32 },
@@ -59,13 +61,9 @@ const BENEFITS = [
 
 const BANKS = ["Nubank", "Itaú", "Bradesco", "XP Investimentos", "Inter", "Santander", "Sicoob"];
 
-const TESTIMONIALS = [
-  { name: "Lucas Mendes", role: "Desenvolvedor", text: "Finalmente um app financeiro que não é confuso. Em uma semana já entendi para onde ia meu dinheiro.", avatar: "LM" },
-  { name: "Ana Paula", role: "Designer", text: "O dashboard é lindo e funcional. Uso todo dia para acompanhar meus gastos e metas.", avatar: "AP" },
-  { name: "Rafael Costa", role: "Empreendedor", text: "Me ajudou a economizar R$ 800 por mês só identificando gastos que eu nem sabia que tinha.", avatar: "RC" },
-];
 
 export default function Landing() {
+  useThemeLock("light");
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -86,13 +84,6 @@ export default function Landing() {
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/90 dark:bg-slate-900/85 backdrop-blur-xl shadow-sm border-b border-slate-100 dark:border-slate-800" : "bg-white dark:bg-slate-900"}`}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Logo size={36} />
-
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
-            <a href="#beneficios" className="hover:text-slate-900 dark:hover:text-white transition">Funcionalidades</a>
-            <a href="#demo" className="hover:text-slate-900 dark:hover:text-white transition">Como funciona</a>
-            <a href="#depoimentos" className="hover:text-slate-900 dark:hover:text-white transition">Depoimentos</a>
-            <a href="#precos" className="hover:text-slate-900 dark:hover:text-white transition">Planos</a>
-          </nav>
 
           <div className="hidden md:flex items-center gap-3">
             <button onClick={() => navigate("/login")}
@@ -120,21 +111,13 @@ export default function Landing() {
       </header>
 
       {/* ── HERO ── */}
-      <section className="pt-16 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        <div className="max-w-6xl mx-auto px-6 pt-16 sm:pt-20 pb-0 grid lg:grid-cols-[1fr_1.4fr] gap-8 items-end">
+      <section className="pt-16 overflow-hidden bg-gradient-to-b from-blue-300 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+        <div className="max-w-7xl mx-auto px-6 pt-24 sm:pt-32 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-12 items-center min-h-[85vh]">
 
           {/* Left */}
           <div className="pb-14 sm:pb-20 text-center lg:text-left">
-            <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible"
-              className="flex justify-center lg:justify-start mb-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                3 dias grátis · Sem cartão de crédito
-              </div>
-            </motion.div>
-
             <motion.h1 custom={1} variants={fadeUp} initial="hidden" animate="visible"
-              className="text-4xl sm:text-5xl font-extrabold text-slate-900 dark:text-slate-100 leading-[1.1] tracking-tight mb-6">
+              className="text-5xl sm:text-6xl font-extrabold text-slate-900 dark:text-slate-100 leading-[1.1] tracking-tight mb-8">
               Seu dinheiro sob controle,{" "}
               <span className="text-blue-600">sem esforço</span>
             </motion.h1>
@@ -179,34 +162,29 @@ export default function Landing() {
             </motion.div>
           </div>
 
-          {/* Right — dashboard floating */}
+          {/* Right — hero image */}
           <motion.div
             custom={2} variants={fadeUp} initial="hidden" animate="visible"
-            className="relative hidden lg:block"
-            style={{ marginRight: "calc(-1 * (100vw - 100%) / 2)" }}
+            className="relative hidden lg:flex justify-center items-center"
           >
-            <div className="relative">
-              <div className="absolute -inset-6 bg-blue-300/20 rounded-3xl blur-3xl" />
-              <img
-                src={dashboardPreview}
-                alt="Dashboard Financials"
-                className="relative w-full rounded-tl-2xl shadow-2xl shadow-slate-300/70 border border-slate-200/80 border-b-0 border-r-0"
-                style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderTopRightRadius: 0 }}
-              />
-            </div>
+            <img
+              src={heroImage}
+              alt="Hero Financials"
+              className="w-full drop-shadow-2xl"
+            />
           </motion.div>
         </div>
       </section>
 
       {/* ── BANKS ── */}
-      <section className="border-y border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
+      <section className="border-y border-blue-200/30 dark:border-slate-800 py-10">
         <div className="max-w-5xl mx-auto px-6">
           <p className="text-center text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-8">
             Compatível com os principais bancos do Brasil
           </p>
           <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-4">
             {BANKS.map((bank) => (
-              <span key={bank} className="text-base font-bold text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-300 transition-colors cursor-default tracking-tight">
+              <span key={bank} className="text-base font-bold text-slate-800 dark:text-slate-200 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-default tracking-tight">
                 {bank}
               </span>
             ))}
@@ -215,7 +193,7 @@ export default function Landing() {
       </section>
 
       {/* ── BENEFITS ── */}
-      <section id="beneficios" className="bg-white dark:bg-slate-950 py-16 sm:py-28 px-6">
+      <section id="beneficios" className="py-16 sm:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <Reveal className="text-center mb-16">
             <p className="text-xs font-semibold text-blue-600 uppercase tracking-widest mb-3">Funcionalidades</p>
@@ -229,7 +207,7 @@ export default function Landing() {
                 <motion.div
                   whileHover={{ y: -4 }}
                   transition={{ duration: 0.2 }}
-                  className="group p-7 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-blue-100 dark:hover:border-blue-900/70 hover:shadow-lg hover:shadow-blue-50 dark:hover:shadow-none transition-all text-center sm:text-left"
+                  className="group p-7 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-blue-100 dark:hover:border-blue-900/70 hover:shadow-lg hover:shadow-blue-50 dark:hover:shadow-none transition-all text-center sm:text-left"
                 >
                   <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center mb-5 group-hover:scale-110 transition-transform mx-auto sm:mx-0">
                     <img src={b.icon} alt="" className="w-5 h-5" style={{ filter: "brightness(0) invert(1)" }} />
@@ -244,7 +222,7 @@ export default function Landing() {
       </section>
 
       {/* ── DEMO ── */}
-      <section id="demo" className="py-16 sm:py-28 px-6 bg-gradient-to-br from-blue-50 to-slate-50 dark:from-slate-900 dark:to-slate-950">
+      <section id="demo" className="py-16 sm:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <Reveal className="text-center mb-16">
             <p className="text-xs font-semibold text-blue-600 uppercase tracking-widest mb-3">Como funciona</p>
@@ -259,7 +237,7 @@ export default function Landing() {
           </Reveal>
 
           <div className="flex flex-wrap justify-center gap-3 mt-10">
-            {["Dashboard completo", "Importação CSV Nubank", "Metas financeiras", "Gastos recorrentes", "Saúde financeira", "Open Finance"].map((f) => (
+            {["Dashboard completo", "Metas financeiras", "Gastos recorrentes", "Saúde financeira", "Open Finance"].map((f) => (
               <span key={f} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-medium text-slate-600 dark:text-slate-300 shadow-sm dark:shadow-none">
                 {f}
               </span>
@@ -268,41 +246,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
-      <section id="depoimentos" className="bg-white dark:bg-slate-950 py-16 sm:py-28 px-6">
-        <div className="max-w-6xl mx-auto">
-          <Reveal className="text-center mb-16">
-            <p className="text-xs font-semibold text-blue-600 uppercase tracking-widest mb-3">Depoimentos</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-slate-100">Quem usa, não para</h2>
-          </Reveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.name} delay={i * 0.1}>
-                <div className="p-7 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:shadow-md dark:hover:shadow-none transition-shadow h-full">
-                  <div className="flex gap-1 mb-5">
-                    {[...Array(5)].map((_, j) => (
-                      <svg key={j} className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-6">"{t.text}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
-                      {t.avatar}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t.name}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">{t.role}</p>
-                    </div>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ── PRICING / CTA ── */}
       <section id="precos" className="py-16 sm:py-28 px-6" style={{ background: "linear-gradient(160deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)" }}>

@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import Logo from "../components/Logo";
+import { useThemeLock } from "../context/ThemeContext";
 import iconChevronLeft from "../svg/chevron-left.svg";
 import iconEye from "../svg/eye.svg";
 import iconEyeAlt from "../svg/eye-alt.svg";
 
 export default function Login() {
+  useThemeLock("light");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mounted, setMounted] = useState(false);

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 const ThemeContext = createContext(null);
 
@@ -30,4 +30,27 @@ export function ThemeProvider({ children }) {
 
 export function useTheme() {
   return useContext(ThemeContext);
+}
+
+export function useThemeLock(lockedTheme) {
+  const { theme, setTheme } = useTheme();
+  const previousThemeRef = useRef(theme);
+
+  useEffect(() => {
+    previousThemeRef.current = theme;
+  }, [theme]);
+
+  useEffect(() => {
+    const previousTheme = previousThemeRef.current;
+
+    if (theme !== lockedTheme) {
+      setTheme(lockedTheme);
+    }
+
+    return () => {
+      if (previousTheme !== lockedTheme) {
+        setTheme(previousTheme);
+      }
+    };
+  }, [lockedTheme, setTheme]);
 }
